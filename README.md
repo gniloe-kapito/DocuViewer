@@ -223,6 +223,11 @@ src/
 scripts/
   gen-test-files.ts       # генератор тестовых файлов для QA
   gen-large-pdf.ts        # генератор PDF на 300 страниц (стресс-тест)
+  gen-favicon.ts          # регенерация favicon-набора (dev: требует sharp)
+public/
+  favicon.ico / favicon-16/32/48/192/512.png
+  apple-touch-icon.png    # 180×180 (iOS)
+  logo.svg, robots.txt
 .github/workflows/
   deploy.yml              # авто-деплой на GitHub Pages
 ```

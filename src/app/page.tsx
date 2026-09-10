@@ -10,19 +10,10 @@ import {
   Loader2,
   Info,
   UploadCloud,
-  Zap,
-  FileStack,
-  FileType2,
-  FileSpreadsheet,
-  Presentation,
-  FileCode,
-  Braces,
-  ImageIcon,
   ArrowLeftRight,
   Link2,
   Link2Off,
   X,
-  type LucideIcon,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { DropZone } from '@/components/drop-zone'
@@ -428,6 +419,19 @@ export default function Home() {
     })
   }, [files, pushClosed])
 
+  /** Logo / site-name click — "go home". Closes every open document (via
+   *  the same close-all path, so Ctrl+Shift+T can bring them back) and
+   *  exits compare mode, returning to the landing screen. No-op when
+   *  nothing is open — the click must never feel destructive on an empty
+   *  state. */
+  const goHome = React.useCallback(() => {
+    if (compareMode) {
+      setCompareMode(false)
+      setSyncScroll(false)
+    }
+    if (files.length > 0) closeAllFiles()
+  }, [compareMode, files.length, closeAllFiles])
+
   /** Closes every tab except the active one (tabs menu). */
   const closeOtherFiles = React.useCallback(() => {
     const keepId = activeId
@@ -633,19 +637,28 @@ export default function Home() {
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-5 py-3 flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+          {/* Logo + site name — click returns to the landing screen from any
+              state (closes all documents; they stay restorable via
+              Ctrl+Shift+T). */}
+          <button
+            type="button"
+            onClick={goHome}
+            title="DocuViewer — на главную"
+            aria-label="DocuViewer — вернуться на главный экран"
+            className="group -mx-2 flex min-w-0 cursor-pointer items-center gap-2.5 rounded-xl px-2 py-1 text-left transition-colors hover:bg-accent/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:bg-accent/80"
+          >
+            <span className="dv-logo-tile flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
               <FileText className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold leading-tight tracking-tight truncate">
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-base font-bold leading-tight tracking-tight sm:text-lg">
                 DocuViewer
-              </h1>
-              <p className="hidden sm:block text-[11px] text-muted-foreground leading-tight">
+              </span>
+              <span className="hidden text-[11px] leading-tight text-muted-foreground sm:block">
                 Локальный просмотрщик документов
-              </p>
-            </div>
-          </div>
+              </span>
+            </span>
+          </button>
           <div className="flex-1" />
           <div className="flex items-center gap-1.5 sm:gap-2">
             <UrlLoadDialog onLoad={ingestUrl} />
@@ -670,7 +683,7 @@ export default function Home() {
       {/* Main */}
       <main className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-5 py-4 sm:py-6">
         {!hasFiles ? (
-          <div className="relative flex flex-col items-center justify-center gap-6 py-6 sm:py-10">
+          <div className="relative flex flex-col items-center justify-center gap-8 py-8 sm:py-14 lg:py-16">
             {/* Decorative gradient blobs (no layout impact) */}
             <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
               <div className="dv-blob dv-blob-emerald" />
@@ -678,62 +691,23 @@ export default function Home() {
               <div className="dv-blob dv-blob-amber" />
             </div>
 
-            <div className="text-center max-w-2xl space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                100% локально · файлы не покидают ваш браузер
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                Откройте и просмотрите документ{' '}
+            {/* Hero: one calm heading + one human sentence. No badge pills,
+                no keyboard-hint plaques — privacy and speed live in the copy
+                itself, not in decoration. */}
+            <div className="max-w-2xl space-y-4 text-center">
+              <h1 className="text-3xl font-bold leading-[1.15] tracking-tight sm:text-4xl">
+                Откройте документ{' '}
                 <span className="dv-gradient-text">прямо в браузере</span>
-              </h2>
-              <p className="text-sm sm:text-base text-muted-foreground">
-                Поддержка PDF, DOCX, XLSX/CSV, PPTX, Markdown, JSON, изображений
-                и RTF. Перетащите файл в любое место страницы или выберите
-                кнопкой — всё обрабатывается локально, файлы никуда не
-                загружаются.
+              </h1>
+              <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
+                Любые файлы — от PDF и Word до таблиц и презентаций —
+                открываются мгновенно и никуда не отправляются: всё остаётся
+                в вашем браузере.
               </p>
             </div>
 
-            {/* Trust strip */}
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1">
-                <FileStack className="h-3.5 w-3.5 text-primary/80" />
-                9+ форматов
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                Без сервера
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1">
-                <Zap className="h-3.5 w-3.5 text-amber-500" />
-                Мгновенное открытие
-              </span>
-            </div>
-
-            {/* Keyboard hints — reinforce the global shortcuts */}
-            <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-foreground/90">
-              <span className="inline-flex items-center gap-1.5">
-                <kbd className="dv-kbd">Ctrl</kbd>
-                <kbd className="dv-kbd">O</kbd>
-                открыть файл
-              </span>
-              <span aria-hidden="true" className="text-border">·</span>
-              <span className="inline-flex items-center gap-1.5">
-                <kbd className="dv-kbd">Ctrl</kbd>
-                <kbd className="dv-kbd">V</kbd>
-                вставить из буфера
-              </span>
-              <span aria-hidden="true" className="text-border hidden sm:inline">·</span>
-              <span className="hidden sm:inline-flex items-center gap-1.5">
-                <kbd className="dv-kbd">Ctrl</kbd>
-                <kbd className="dv-kbd">F</kbd>
-                поиск в документе
-              </span>
-            </div>
-
             <DropZone onFiles={ingestFiles} className="w-full max-w-2xl" />
-            <FormatGrid onPick={openFilePicker} />
+            <FormatRow onPick={openFilePicker} />
           </div>
         ) : (
           <div className="flex flex-col gap-3">
@@ -966,7 +940,9 @@ export default function Home() {
         )}
       </main>
 
-      {/* Footer */}
+      {/* Footer — quiet and human: the privacy promise plus the wordmark.
+          Deliberately NO technical caveats (parsing speed, render limits):
+          that information belongs in the About dialog, not the first screen. */}
       <footer className="mt-auto border-t border-border bg-background/80">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
@@ -975,11 +951,10 @@ export default function Home() {
               Все файлы обрабатываются локально. Ничего не отправляется на сервер.
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <span>Большие файлы могут обрабатываться медленно (клиентский парсинг).</span>
-            <span className="hidden md:inline">·</span>
-            <span className="hidden md:inline">PPTX — упрощённый рендер.</span>
-          </div>
+          <span className="inline-flex items-center gap-1.5 select-none">
+            <span className="dv-footer-dot" aria-hidden="true" />
+            DocuViewer
+          </span>
         </div>
       </footer>
     </div>
@@ -987,131 +962,95 @@ export default function Home() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Landing page: format cards grid                                    */
+/*  Landing page: supported-formats chip row                           */
 /* ------------------------------------------------------------------ */
 
-interface FormatCard {
+interface FormatChip {
+  /** Short family label shown inside the chip. No descriptions — the
+   *  characteristic colour does the talking (red PDF, blue Word, green
+   *  Excel, orange PowerPoint…). */
   label: string
-  desc: string
-  ext: string
   /** `accept` filter for the OS file picker (comma-separated extensions). */
   accept: string
-  icon: LucideIcon
-  badge: string
+  /** Family colour (text + tinted background + border), light & dark. */
+  chip: string
 }
 
-const FORMAT_CARDS: FormatCard[] = [
+const FORMAT_CHIPS: FormatChip[] = [
   {
     label: 'PDF',
-    desc: 'Документы с точной вёрсткой',
-    ext: 'pdf',
     accept: '.pdf',
-    icon: FileText,
-    badge: 'bg-rose-500/12 text-rose-600 dark:text-rose-300 border-rose-500/25',
+    chip: 'text-rose-600 dark:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:border-rose-500/50',
   },
   {
-    label: 'Word',
-    desc: 'Текстовые документы',
-    ext: 'docx',
+    label: 'DOC',
     accept: '.docx',
-    icon: FileType2,
-    badge: 'bg-sky-500/12 text-sky-700 dark:text-sky-300 border-sky-500/25',
+    chip: 'text-sky-700 dark:text-sky-300 bg-sky-500/10 border-sky-500/25 hover:border-sky-500/50',
   },
   {
-    label: 'Excel',
-    desc: 'Таблицы и листы',
-    ext: 'xlsx',
+    label: 'XLS',
     accept: '.xlsx,.xls,.csv',
-    icon: FileSpreadsheet,
-    badge: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25',
+    chip: 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/25 hover:border-emerald-500/50',
   },
   {
-    label: 'PowerPoint',
-    desc: 'Презентации и слайды',
-    ext: 'pptx',
+    label: 'PPT',
     accept: '.pptx,.ppt',
-    icon: Presentation,
-    badge: 'bg-orange-500/12 text-orange-700 dark:text-orange-300 border-orange-500/25',
+    chip: 'text-orange-700 dark:text-orange-300 bg-orange-500/10 border-orange-500/25 hover:border-orange-500/50',
   },
   {
-    label: 'Markdown',
-    desc: 'Заметки и документация',
-    ext: 'md',
-    accept: '.md,.markdown',
-    icon: FileCode,
-    badge: 'bg-violet-500/12 text-violet-700 dark:text-violet-300 border-violet-500/25',
+    label: 'MD',
+    accept: '.md,.markdown,.mdx',
+    chip: 'text-violet-700 dark:text-violet-300 bg-violet-500/10 border-violet-500/25 hover:border-violet-500/50',
   },
   {
     label: 'JSON',
-    desc: 'Структурированные данные',
-    ext: 'json',
-    accept: '.json',
-    icon: Braces,
-    badge: 'bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25',
+    accept: '.json,.jsonl,.geojson',
+    chip: 'text-amber-700 dark:text-amber-300 bg-amber-500/10 border-amber-500/25 hover:border-amber-500/50',
   },
   {
-    label: 'Текст',
-    desc: 'TXT и LOG файлы',
-    ext: 'txt',
+    label: 'TXT',
     accept: '.txt,.log,.text',
-    icon: FileText,
-    badge: 'bg-zinc-500/12 text-zinc-700 dark:text-zinc-300 border-zinc-500/25',
+    chip: 'text-zinc-600 dark:text-zinc-300 bg-zinc-500/10 border-zinc-500/25 hover:border-zinc-500/50',
   },
   {
-    label: 'Изображения',
-    desc: 'PNG, JPG, GIF, SVG, WebP',
-    ext: 'png',
-    accept: '.png,.jpg,.jpeg,.gif,.svg,.webp',
-    icon: ImageIcon,
-    badge: 'bg-teal-500/12 text-teal-700 dark:text-teal-300 border-teal-500/25',
+    label: 'IMG',
+    accept: '.png,.jpg,.jpeg,.gif,.svg,.webp,.bmp,.avif',
+    chip: 'text-teal-700 dark:text-teal-300 bg-teal-500/10 border-teal-500/25 hover:border-teal-500/50',
   },
   {
     label: 'RTF',
-    desc: 'Rich Text Format',
-    ext: 'rtf',
     accept: '.rtf',
-    icon: FileType2,
-    badge: 'bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/25',
+    chip: 'text-fuchsia-700 dark:text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/25 hover:border-fuchsia-500/50',
   },
 ]
 
-function FormatGrid({ onPick }: { onPick: (accept: string) => void }) {
+function FormatRow({ onPick }: { onPick: (accept: string) => void }) {
   return (
-    <div
-      className="grid w-full max-w-2xl grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5"
-      aria-label="Поддерживаемые форматы"
-    >
-      {FORMAT_CARDS.map((f) => {
-        const Icon = f.icon
-        return (
+    <div className="flex w-full max-w-2xl flex-col items-center gap-3.5">
+      <p
+        className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground/60"
+        aria-hidden="true"
+      >
+        Поддерживаемые форматы
+      </p>
+      <div
+        className="flex flex-wrap items-center justify-center gap-2"
+        role="list"
+        aria-label="Поддерживаемые форматы"
+      >
+        {FORMAT_CHIPS.map((f) => (
           <button
             key={f.label}
             type="button"
             onClick={() => onPick(f.accept)}
-            aria-label={`Открыть ${f.label} — выбрать файл (${f.accept})`}
-            title={`Выбрать ${f.label} файл (${f.accept})`}
-            className="dv-format-card group flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card/70 px-3 py-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-border/80 hover:bg-card hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring active:translate-y-0"
+            aria-label={`Выбрать файл — ${f.label}`}
+            title={`Выбрать ${f.label}-файл (${f.accept})`}
+            className={cn('dv-format-chip font-mono', f.chip)}
           >
-            <span
-              className={cn(
-                'inline-flex size-8 shrink-0 items-center justify-center rounded-md border transition-transform group-hover:scale-105',
-                f.badge,
-              )}
-              aria-hidden="true"
-            >
-              <Icon className="size-4" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold leading-tight">
-                {f.label}
-              </span>
-              <span className="block truncate text-[11px] text-muted-foreground leading-tight">
-                {f.desc}
-              </span>
-            </span>
+            {f.label}
           </button>
-        )
-      })}
+        ))}
+      </div>
     </div>
   )
 }

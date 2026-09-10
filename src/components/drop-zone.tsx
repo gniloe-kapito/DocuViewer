@@ -54,10 +54,6 @@ export function DropZone({ onFiles, compact = false, className }: DropZoneProps)
     [onFiles],
   )
 
-  const supported = getSupportedExtensions()
-    .slice(0, 12)
-    .join(', ')
-
   if (compact) {
     return (
       <div
@@ -94,19 +90,18 @@ export function DropZone({ onFiles, compact = false, className }: DropZoneProps)
   return (
     <div
       className={cn(
-        'relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-card/40 text-center transition-all duration-200',
-        dragActive
-          ? 'dv-drop-pulse border-primary bg-primary/10 scale-[1.01] shadow-lg'
-          : 'border-border hover:border-primary/60 hover:bg-card/70',
-        compact ? 'p-6' : 'p-8 sm:p-12 lg:p-16',
+        'dv-dropzone group relative flex cursor-pointer flex-col items-center justify-center rounded-2xl text-center transition-[border-color,background-color,box-shadow] duration-300',
+        compact ? 'p-6' : 'p-8 sm:p-12 lg:p-14',
         className,
       )}
+      data-drag={dragActive ? 'true' : undefined}
       onDragEnter={handleDrag}
       onDragOver={handleDrag}
       onDragLeave={handleDrag}
       onDrop={handleDrop}
       role="button"
       tabIndex={0}
+      aria-label="Перетащите документы или выберите файл"
       onClick={handlePick}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -123,25 +118,48 @@ export function DropZone({ onFiles, compact = false, className }: DropZoneProps)
         onChange={handleChange}
         accept={getSupportedExtensions().map((e) => '.' + e).join(',')}
       />
-      <div
-        className={cn(
-          'flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-full bg-primary/10 text-primary mb-4 transition-transform',
-          dragActive && 'scale-110',
-        )}
+
+      {/* Soft accent halo — invisible until hover, full glow while a file
+          hovers over the zone. Pure decoration, no layout impact. */}
+      <div className="dv-drop-halo" aria-hidden="true" />
+
+      {/* Product mark: a stack of documents (NOT a stock "upload to cloud"
+          glyph). The three sheets fan out and straighten while dragging —
+          the zone itself "reaches" for the file. */}
+      <svg
+        className="dv-doc-stack mb-5 h-14 w-14 sm:h-16 sm:w-16"
+        viewBox="0 0 64 64"
+        fill="none"
+        aria-hidden="true"
       >
-        <UploadCloud className="h-8 w-8 sm:h-10 sm:w-10" />
-      </div>
-      <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">
+        <defs>
+          <linearGradient id="dv-drop-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="oklch(0.62 0.16 162)" />
+            <stop offset="1" stopColor="oklch(0.74 0.17 60)" />
+          </linearGradient>
+        </defs>
+        <rect className="dv-sheet dv-sheet-back" x="10" y="6" width="30" height="42" rx="3.5" />
+        <rect className="dv-sheet dv-sheet-mid" x="16" y="10" width="30" height="42" rx="3.5" />
+        <g className="dv-sheet dv-sheet-front">
+          <path d="M26.5 14 H44 L54 24 V52.5 A3.5 3.5 0 0 1 50.5 56 H26.5 A3.5 3.5 0 0 1 23 52.5 V17.5 A3.5 3.5 0 0 1 26.5 14 Z" />
+          <path className="dv-sheet-fold" d="M44 14 V20.5 A3.5 3.5 0 0 0 47.5 24 H54" />
+          <rect className="dv-sheet-line dv-sheet-line-a" x="29" y="30" width="19" height="3.5" rx="1.75" />
+          <rect className="dv-sheet-line" x="29" y="38" width="14" height="3.5" rx="1.75" />
+          <rect className="dv-sheet-line" x="29" y="46" width="17" height="3.5" rx="1.75" />
+        </g>
+      </svg>
+
+      <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">
         Перетащите документы сюда
       </h2>
-      <p className="mt-2 text-sm sm:text-base text-muted-foreground max-w-md">
-        или нажмите кнопку ниже, чтобы выбрать файлы. Всё обрабатывается локально
-        в вашем браузере — файлы никуда не загружаются.
+      <p className="mt-2 max-w-md text-sm text-muted-foreground sm:text-base">
+        или выберите файл на компьютере — он откроется сразу, без загрузки
+        куда-либо
       </p>
       <Button
         type="button"
         size="lg"
-        className="mt-5"
+        className="dv-cta mt-6"
         onClick={(e) => {
           // Stop propagation so the outer dropzone div doesn't ALSO fire
           // handlePick (which would double-open the dialog in some browsers).
@@ -154,8 +172,10 @@ export function DropZone({ onFiles, compact = false, className }: DropZoneProps)
         <FolderOpen className="h-4 w-4 mr-2" />
         Выбрать файл
       </Button>
-      <p className="mt-5 text-xs text-muted-foreground/80">
-        Поддерживаемые форматы: <span className="font-mono">{supported}</span>…
+      {/* The ONE shortcut worth advertising (Ctrl+O really works globally).
+          Plain small text — not a row of kbd plaques. */}
+      <p className="mt-4 text-[11px] text-muted-foreground/70">
+        или нажмите Ctrl + O
       </p>
     </div>
   )

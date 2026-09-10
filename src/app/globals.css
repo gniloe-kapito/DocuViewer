@@ -900,26 +900,6 @@
   background: color-mix(in oklch, var(--primary) 35%, transparent);
 }
 
-/* ---- <kbd> chips (landing keyboard hints, shortcut help) ---- */
-.dv-kbd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.35rem;
-  height: 1.35rem;
-  padding: 0 0.3rem;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--foreground);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-bottom-width: 2px;
-  border-radius: 0.35rem;
-  box-shadow: 0 1px 0 color-mix(in oklch, var(--muted-foreground) 20%, transparent);
-}
-
 /* ---- Active search match: one-shot pulse ----
    When the viewer navigates to a match, the newly-active mark/rect plays a
    short "breathing" pulse so the eye lands on it instantly. The animation
@@ -955,10 +935,9 @@
   }
 }
 
-/* ---- Landing format grid: staggered entrance ----
-   Cards rise in with a small per-card delay (CSS only — the nth-child
-   delays cap at 9 so longer lists render without artificial waits).
-   Disabled for reduced-motion users. */
+/* ---- Landing format chips: staggered entrance ----
+   Small mono type-coloured chips (PDF red, DOC blue, XLS green…). They
+   rise in with a tiny per-chip delay; disabled for reduced-motion. */
 @keyframes dv-card-in {
   from {
     opacity: 0;
@@ -969,24 +948,45 @@
     transform: none;
   }
 }
-.dv-format-card {
+.dv-format-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.4rem;
+  padding: 0.32rem 0.65rem;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.55rem;
+  cursor: pointer;
   animation: dv-card-in 0.35s ease-out both;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
 }
-.dv-format-card:nth-child(1) { animation-delay: 0.02s; }
-.dv-format-card:nth-child(2) { animation-delay: 0.05s; }
-.dv-format-card:nth-child(3) { animation-delay: 0.08s; }
-.dv-format-card:nth-child(4) { animation-delay: 0.11s; }
-.dv-format-card:nth-child(5) { animation-delay: 0.14s; }
-.dv-format-card:nth-child(6) { animation-delay: 0.17s; }
-.dv-format-card:nth-child(7) { animation-delay: 0.2s; }
-.dv-format-card:nth-child(8) { animation-delay: 0.23s; }
-.dv-format-card:nth-child(9) { animation-delay: 0.26s; }
-.dv-format-card:focus-visible {
+.dv-format-chip:nth-child(1) { animation-delay: 0.02s; }
+.dv-format-chip:nth-child(2) { animation-delay: 0.05s; }
+.dv-format-chip:nth-child(3) { animation-delay: 0.08s; }
+.dv-format-chip:nth-child(4) { animation-delay: 0.11s; }
+.dv-format-chip:nth-child(5) { animation-delay: 0.14s; }
+.dv-format-chip:nth-child(6) { animation-delay: 0.17s; }
+.dv-format-chip:nth-child(7) { animation-delay: 0.2s; }
+.dv-format-chip:nth-child(8) { animation-delay: 0.23s; }
+.dv-format-chip:nth-child(9) { animation-delay: 0.26s; }
+.dv-format-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px -4px color-mix(in oklch, var(--foreground) 25%, transparent);
+}
+.dv-format-chip:active {
+  transform: translateY(0);
+}
+.dv-format-chip:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
-  .dv-format-card {
+  .dv-format-chip {
     animation: none;
   }
 }
@@ -1033,29 +1033,177 @@
   box-shadow: inset -2px 0 0 0 var(--primary);
 }
 
-/* ---- Drop-zone drag-over pulse ----
-   While a file hovers over the drop zone (or the whole window overlay) the
-   dashed border "breathes" — a gentle affordance that the drop will be
-   accepted. Pure box-shadow/dash-offset animation: no layout, no repaint
-   of children. Disabled for reduced-motion users. */
+/* ---- Landing drop zone (brand identity) ----
+   Product accent = the emerald→amber gradient already used by the hero
+   heading. The zone ditches the template dashed border: a calm hairline,
+   an inner top highlight, and a radial accent halo that wakes up on hover
+   and fully glows while a file hovers over the zone. Pure
+   border/box-shadow/background animation — no layout shifts. */
+.dv-dropzone {
+  border: 1.5px solid color-mix(in oklch, var(--border) 90%, transparent);
+  background: color-mix(in oklch, var(--card) 45%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in oklch, var(--foreground) 3%, transparent);
+  isolation: isolate;
+}
+.dv-dropzone:hover {
+  border-color: color-mix(in oklch, oklch(0.62 0.16 162) 45%, var(--border));
+  background: color-mix(in oklch, var(--card) 60%, transparent);
+}
+.dv-drop-halo {
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(
+    62% 58% at 50% 44%,
+    oklch(0.72 0.16 162 / 0.16),
+    oklch(0.8 0.16 60 / 0.1) 55%,
+    transparent 78%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.dv-dropzone:hover .dv-drop-halo {
+  opacity: 0.75;
+}
+.dv-dropzone[data-drag='true'] {
+  border-color: oklch(0.7 0.16 162 / 0.75);
+  background: color-mix(in oklch, var(--card) 80%, transparent);
+  box-shadow:
+    0 0 0 1px oklch(0.74 0.17 60 / 0.35),
+    0 14px 48px -12px oklch(0.62 0.16 60 / 0.35);
+  animation: dv-drop-pulse 1.2s ease-in-out infinite;
+}
+.dv-dropzone[data-drag='true'] .dv-drop-halo {
+  opacity: 1;
+}
+
+/* ---- Drag-over pulse (accent glow breathing) ----
+   Animates only the glow ring colour — the static box-shadow from
+   [data-drag='true'] provides the base, the pulse adds the breathing. */
 @keyframes dv-drop-pulse {
   0%,
   100% {
-    border-color: color-mix(in oklch, var(--primary) 55%, transparent);
-    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 0%, transparent);
+    box-shadow:
+      0 0 0 1px oklch(0.74 0.17 60 / 0.3),
+      0 14px 48px -12px oklch(0.62 0.16 60 / 0.3);
   }
   50% {
-    border-color: color-mix(in oklch, var(--primary) 90%, transparent);
-    box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 12%, transparent);
+    box-shadow:
+      0 0 0 5px oklch(0.74 0.17 60 / 0.14),
+      0 14px 48px -12px oklch(0.62 0.16 60 / 0.42);
   }
-}
-.dv-drop-pulse {
-  animation: dv-drop-pulse 1.15s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .dv-drop-pulse {
+  .dv-dropzone[data-drag='true'] {
     animation: none;
   }
+}
+
+/* ---- Stacked-documents product mark (drop zone icon) ----
+   Three outlined sheets; the front one carries the brand gradient as its
+   first "text line". On hover the stack lifts slightly; while a file is
+   dragged over the zone the sheets fan apart — the zone reaches for the
+   file. */
+.dv-doc-stack {
+  color: var(--muted-foreground);
+  transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.3, 1.2);
+}
+.dv-dropzone:hover .dv-doc-stack {
+  transform: translateY(-3px);
+}
+.dv-dropzone[data-drag='true'] .dv-doc-stack {
+  transform: scale(1.09);
+}
+.dv-doc-stack .dv-sheet {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  transform-origin: 32px 34px;
+  transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.3, 1.2);
+}
+.dv-sheet-back {
+  opacity: 0.22;
+  transform: rotate(-9deg);
+}
+.dv-sheet-mid {
+  opacity: 0.42;
+  transform: rotate(5deg);
+}
+.dv-sheet-front {
+  opacity: 0.85;
+}
+.dv-sheet-front > path:first-child {
+  fill: color-mix(in oklch, var(--card) 85%, transparent);
+}
+.dv-sheet-fold {
+  opacity: 0.5;
+  stroke-width: 2;
+}
+.dv-sheet-line {
+  fill: currentColor;
+  opacity: 0.28;
+}
+.dv-sheet-line-a {
+  fill: url(#dv-drop-grad);
+  opacity: 1;
+}
+.dv-dropzone[data-drag='true'] .dv-sheet-back {
+  transform: rotate(-17deg) translate(-4px, -2px);
+  opacity: 0.3;
+}
+.dv-dropzone[data-drag='true'] .dv-sheet-mid {
+  transform: rotate(10deg) translate(3px, 1px);
+  opacity: 0.55;
+}
+.dv-dropzone[data-drag='true'] .dv-sheet-front {
+  transform: rotate(-2deg) translate(-1px, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv-doc-stack,
+  .dv-doc-stack .dv-sheet {
+    transition: none;
+  }
+  .dv-dropzone:hover .dv-doc-stack,
+  .dv-dropzone[data-drag='true'] .dv-doc-stack {
+    transform: none;
+  }
+}
+
+/* ---- Landing CTA button (brand gradient) ---- */
+.dv-cta {
+  background: linear-gradient(100deg, oklch(0.62 0.16 162), oklch(0.72 0.17 60));
+  color: oklch(0.99 0 0);
+  border: none;
+  box-shadow: 0 6px 20px -6px oklch(0.62 0.16 60 / 0.5);
+}
+.dv-cta:hover {
+  background: linear-gradient(100deg, oklch(0.66 0.16 162), oklch(0.76 0.17 60));
+  box-shadow: 0 8px 28px -6px oklch(0.62 0.16 60 / 0.6);
+  transform: translateY(-1px);
+}
+.dv-cta:active {
+  transform: translateY(0) scale(0.98);
+}
+.dv-cta:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- Header logo tile (matches the favicon) ---- */
+.dv-logo-tile {
+  background: linear-gradient(135deg, oklch(0.62 0.16 162), oklch(0.72 0.17 60));
+  color: oklch(0.99 0 0);
+}
+
+/* ---- Footer wordmark dot: a tiny brand gradient bead ---- */
+.dv-footer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, oklch(0.62 0.16 162), oklch(0.72 0.17 60));
 }
 
 /* ==================== Compare-two-files mode (Task 8) ==================== */
@@ -1275,3 +1423,5 @@ html:not(.dark) .dv-night .dv-hl-active,
   filter: invert(1) hue-rotate(180deg);
 }
 /* cache-bust 4 */
+
+/* cache-bust 5: landing redesign round (Turbopack stale-CSS workaround) */
