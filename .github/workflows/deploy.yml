@@ -1,20 +1,33 @@
 name: Deploy to GitHub Pages
 
+# Автоматическая сборка статического сайта и публикация в ветку gh-pages.
+#
+# Как это работает:
+#   1. Пуш в main/master (или ручной запуск) запускает workflow.
+#   2. Bun устанавливает зависимости по bun.lock (frozen).
+#   3. Next.js собирает статический экспорт (`STATIC_EXPORT=1` → папка out/)
+#      с basePath, вычисленным по имени репозитория.
+#   4. peaceiris/actions-gh-pages публикует содержимое out/ в ветку gh-pages.
+#
+# После первого успешного запуска включите GitHub Pages:
+#   Settings → Pages → Source: "Deploy from a branch" → ветка gh-pages → / (root)
+# Сайт появится по адресу https://<username>.github.io/<repo-name>/
+
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
 
-# Allow writing to the gh-pages branch via the default GITHUB_TOKEN.
 permissions:
   contents: write
 
 concurrency:
-  group: pages
+  group: github-pages-deploy
   cancel-in-progress: true
 
 jobs:
   build-and-deploy:
+    name: Build & Deploy
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -23,23 +36,19 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.14"
+
+      - name: Compute base path from repository name
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          echo "Repository: ${GITHUB_REPOSITORY}"
+          echo "Base path: /${REPO_NAME}"
+          echo "NEXT_PUBLIC_BASE_PATH=/${REPO_NAME}" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Compute GitHub Pages base path
-        id: base
-        run: |
-          # GITHUB_REPOSITORY is "owner/repo-name"
-          REPO="${GITHUB_REPOSITORY#*/}"
-          echo "GitHub Pages base path: /${REPO}"
-          echo "path=/${REPO}" >> "$GITHUB_OUTPUT"
-
-      - name: Build static export
-        env:
-          STATIC_EXPORT: "1"
-          NEXT_PUBLIC_BASE_PATH: ${{ steps.base.outputs.path }}
+      - name: Build static site
         run: bun run build:static
 
       - name: Deploy to gh-pages branch
@@ -47,7 +56,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./out
-          keep_files: false
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'Deploy: ${{ github.sha }}'
+          publish_branch: gh-pages
+          force_orphan: true
+          commit_message: "deploy: ${{ github.sha }}"
