@@ -937,11 +937,11 @@ export default function Home() {
         )}
       </main>
 
-      {/* Footer — ONE quiet centered line (the privacy promise) plus a
-          working link to the project repository. Deliberately nothing else:
-          no wordmark, no technical caveats — those live in the About dialog. */}
+      {/* Footer — ONE quiet centered line (the privacy promise) and nothing
+          else: no wordmark, no links, no technical caveats — those live in
+          the About dialog / header. */}
       <footer className="mt-auto border-t border-border bg-background/80">
-        <div className="mx-auto max-w-[1400px] px-3 sm:px-5 py-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+        <div className="mx-auto max-w-[1400px] px-3 sm:px-5 py-4 flex items-center justify-center text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5 text-center">
             <ShieldCheck
               className="h-3.5 w-3.5 shrink-0 text-emerald-500"
@@ -949,21 +949,6 @@ export default function Home() {
             />
             Все файлы обрабатываются локально. Ничего не отправляется на сервер.
           </span>
-          <span
-            aria-hidden="true"
-            className="hidden h-3 w-px bg-border sm:block"
-          />
-          <a
-            href="https://github.com/gniloe-kapito/DocuViewer"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            aria-label="DocuViewer на GitHub (открывается в новой вкладке)"
-            title="DocuViewer на GitHub"
-          >
-            <Github className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>GitHub</span>
-          </a>
         </div>
       </footer>
     </div>
@@ -975,29 +960,62 @@ export default function Home() {
 /* ------------------------------------------------------------------ */
 
 interface FormatChip {
-  /** Short family label shown inside the chip. No descriptions — the mono
-   *  label itself does the talking; all chips share the single Word-blue
-   *  brand accent (one calm row instead of a nine-colour carnival). */
+  /** Short family label shown inside the chip. No descriptions — the
+   *  characteristic colour does the talking (red PDF, blue Word, green
+   *  Excel, orange PowerPoint…). */
   label: string
   /** `accept` filter for the OS file picker (comma-separated extensions). */
   accept: string
+  /** Family colour (text + tinted background + border), light & dark. */
+  chip: string
 }
 
-/** One shared accent for every format chip — theme-adaptive via the
- *  semantic `primary` tokens (Word blue #2B579A in light, #41A5EE in dark). */
-const CHIP_ACCENT =
-  'bg-primary/10 text-primary border-primary/30 hover:border-primary/60 hover:bg-primary/15'
-
 const FORMAT_CHIPS: FormatChip[] = [
-  { label: 'PDF', accept: '.pdf' },
-  { label: 'DOC', accept: '.docx' },
-  { label: 'XLS', accept: '.xlsx,.xls,.csv' },
-  { label: 'PPT', accept: '.pptx,.ppt' },
-  { label: 'MD', accept: '.md,.markdown,.mdx' },
-  { label: 'JSON', accept: '.json,.jsonl,.geojson' },
-  { label: 'TXT', accept: '.txt,.log,.text' },
-  { label: 'IMG', accept: '.png,.jpg,.jpeg,.gif,.svg,.webp,.bmp,.avif' },
-  { label: 'RTF', accept: '.rtf' },
+  {
+    label: 'PDF',
+    accept: '.pdf',
+    chip: 'text-rose-600 dark:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:border-rose-500/50',
+  },
+  {
+    label: 'DOC',
+    accept: '.docx',
+    chip: 'text-sky-700 dark:text-sky-300 bg-sky-500/10 border-sky-500/25 hover:border-sky-500/50',
+  },
+  {
+    label: 'XLS',
+    accept: '.xlsx,.xls,.csv',
+    chip: 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/25 hover:border-emerald-500/50',
+  },
+  {
+    label: 'PPT',
+    accept: '.pptx,.ppt',
+    chip: 'text-orange-700 dark:text-orange-300 bg-orange-500/10 border-orange-500/25 hover:border-orange-500/50',
+  },
+  {
+    label: 'MD',
+    accept: '.md,.markdown,.mdx',
+    chip: 'text-violet-700 dark:text-violet-300 bg-violet-500/10 border-violet-500/25 hover:border-violet-500/50',
+  },
+  {
+    label: 'JSON',
+    accept: '.json,.jsonl,.geojson',
+    chip: 'text-amber-700 dark:text-amber-300 bg-amber-500/10 border-amber-500/25 hover:border-amber-500/50',
+  },
+  {
+    label: 'TXT',
+    accept: '.txt,.log,.text',
+    chip: 'text-zinc-600 dark:text-zinc-300 bg-zinc-500/10 border-zinc-500/25 hover:border-zinc-500/50',
+  },
+  {
+    label: 'IMG',
+    accept: '.png,.jpg,.jpeg,.gif,.svg,.webp,.bmp,.avif',
+    chip: 'text-teal-700 dark:text-teal-300 bg-teal-500/10 border-teal-500/25 hover:border-teal-500/50',
+  },
+  {
+    label: 'RTF',
+    accept: '.rtf',
+    chip: 'text-fuchsia-700 dark:text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/25 hover:border-fuchsia-500/50',
+  },
 ]
 
 function FormatRow({ onPick }: { onPick: (accept: string) => void }) {
@@ -1021,7 +1039,7 @@ function FormatRow({ onPick }: { onPick: (accept: string) => void }) {
             onClick={() => onPick(f.accept)}
             aria-label={`Выбрать файл — ${f.label}`}
             title={`Выбрать ${f.label}-файл (${f.accept})`}
-            className={cn('dv-format-chip font-mono', CHIP_ACCENT)}
+            className={cn('dv-format-chip font-mono', f.chip)}
           >
             {f.label}
           </button>
