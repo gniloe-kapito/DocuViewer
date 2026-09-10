@@ -96,7 +96,7 @@ export function DropZone({ onFiles, compact = false, className }: DropZoneProps)
       className={cn(
         'relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-card/40 text-center transition-all duration-200',
         dragActive
-          ? 'border-primary bg-primary/10 scale-[1.01] shadow-lg'
+          ? 'dv-drop-pulse border-primary bg-primary/10 scale-[1.01] shadow-lg'
           : 'border-border hover:border-primary/60 hover:bg-card/70',
         compact ? 'p-6' : 'p-8 sm:p-12 lg:p-16',
         className,

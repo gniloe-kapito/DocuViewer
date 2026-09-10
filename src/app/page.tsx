@@ -2,7 +2,28 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
-import { FileText, ShieldCheck, Github, Loader2, Info, PanelsTopLeft } from 'lucide-react'
+import {
+  Columns2,
+  FileText,
+  ShieldCheck,
+  Github,
+  Loader2,
+  Info,
+  UploadCloud,
+  Zap,
+  FileStack,
+  FileType2,
+  FileSpreadsheet,
+  Presentation,
+  FileCode,
+  Braces,
+  ImageIcon,
+  ArrowLeftRight,
+  Link2,
+  Link2Off,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { DropZone } from '@/components/drop-zone'
 import { DocumentTabs } from '@/components/document-tabs'
@@ -20,19 +41,133 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   fileToLoadedFile,
   urlToLoadedFile,
   revokeLoadedFile,
 } from '@/lib/file-utils'
 import { useHistoryStore } from '@/lib/history'
+import { setupViewerUiPrefs, useViewerUiStore } from '@/lib/viewer-ui-store'
 import type { LoadedFile } from '@/lib/viewers/types'
 import { cn } from '@/lib/utils'
+
+/* ------------------------------------------------------------------ */
+/*  Compare mode: scroll-sync helper (module scope, pure DOM)          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The MAIN vertical scroller of a compare pane. Every viewer renders its
+ * document area as `.dv-scroll`; the left thumbnails sidebar (`.dv-thumbs`,
+ * PDF/PPTX/XLSX) also carries the class but is a secondary navigation
+ * column rendered BEFORE the content area — skipped. The first remaining
+ * match is the pane's main content scroller.
+ */
+function getPaneScroller(pane: HTMLElement | null): HTMLElement | null {
+  if (!pane) return null
+  const candidates = pane.querySelectorAll<HTMLElement>('.dv-scroll')
+  for (let i = 0; i < candidates.length; i++) {
+    const el = candidates[i]
+    if (el.classList.contains('dv-thumbs')) continue
+    return el
+  }
+  return null
+}
 
 export default function Home() {
   const [files, setFiles] = React.useState<LoadedFile[]>([])
   const [activeId, setActiveId] = React.useState<string | null>(null)
+
+  /* ---- Compare-two-files mode ----
+   * Side-by-side split: the LEFT pane mirrors the active tab (clicking a
+   * tab switches the left document), the RIGHT pane is chosen with a
+   * select (defaults to the next open file). Global shortcuts belong to
+   * the LEFT pane only (guard in viewer-shell.tsx — only the FIRST
+   * [data-viewer-shell] in DOM order reacts). */
+  const [compareMode, setCompareMode] = React.useState(false)
+  const [rightId, setRightId] = React.useState<string | null>(null)
+  // Synchronized (proportional) scrolling for same-format compare pairs —
+  // see the scroll-sync effect below. Reset on entering/exiting compare and
+  // whenever the pair stops being same-format (self-healing effect).
+  const [syncScroll, setSyncScroll] = React.useState(false)
   const [processing, setProcessing] = React.useState(false)
-  const [showMeta, setShowMeta] = React.useState(true)
+  const [dragOverlay, setDragOverlay] = React.useState(false)
+
+  /* ---- Closed-tabs restore stack (Ctrl+Shift+T) ----
+   * A LIFO stack of recently closed tabs. The full LoadedFile object is kept
+   * (its `arrayBuffer` stays referenced, so the restore is loss-free); the
+   * revoked object URL is re-created from the buffer on restore. Capped so a
+   * close-all spree cannot grow the stack unbounded; the oldest entries are
+   * dropped first. `closedTop` mirrors the stack top into state for the tabs
+   * menu item label; the stack itself is a ref so the close/restore handlers
+   * stay referentially stable (they are used by keyboard effects). */
+  const closedStackRef = React.useRef<
+    Array<{ file: LoadedFile; index: number }>
+  >([])
+  const [closedTop, setClosedTop] = React.useState<string | null>(null)
+  const CLOSED_STACK_MAX = 12
+
+  const pushClosed = React.useCallback(
+    (entries: Array<{ file: LoadedFile; index: number }>) => {
+      if (entries.length === 0) return
+      const stack = closedStackRef.current
+      stack.push(...entries)
+      if (stack.length > CLOSED_STACK_MAX) {
+        closedStackRef.current = stack.slice(stack.length - CLOSED_STACK_MAX)
+      }
+      setClosedTop(
+        closedStackRef.current[closedStackRef.current.length - 1]?.file.name ??
+          null,
+      )
+    },
+    [],
+  )
+
+  /** Restores the most recently closed tab (Ctrl+Shift+T / menu item / the
+   * «Восстановить» action on the close toast). Re-creates the object URL
+   * (the original was revoked at close time), re-inserts the file at its
+   * original position (clamped to the current tab count) and focuses it. */
+  const restoreClosedTab = React.useCallback(() => {
+    const stack = closedStackRef.current
+    const entry = stack.pop()
+    if (!entry) {
+      toast.info('Нет недавно закрытых вкладок')
+      return
+    }
+    setClosedTop(stack.length > 0 ? stack[stack.length - 1].file.name : null)
+    const { file, index } = entry
+    // Re-create the object URL from the kept buffer (type fallback mirrors
+    // fileToLoadedFile's own fallback).
+    const blob = new Blob([file.arrayBuffer], {
+      type: file.type || 'application/octet-stream',
+    })
+    const restored: LoadedFile = {
+      ...file,
+      url: URL.createObjectURL(blob),
+    }
+    setFiles((prev) => {
+      // Safety: an id collision should be impossible (ids are unique per
+      // load and the file was removed), but a guard is cheaper than a bug.
+      if (prev.some((f) => f.id === file.id)) return prev
+      const at = Math.min(index, prev.length)
+      const next = [...prev]
+      next.splice(at, 0, restored)
+      return next
+    })
+    setActiveId(file.id)
+    toast.success(`Восстановлена вкладка «${file.name}»`)
+  }, [])
+
+  // Right metadata-panel visibility lives in the GLOBAL viewer UI store so
+  // that every viewer's toolbar toggle (ViewerShell) and this page agree on
+  // the same state — identical behaviour for PDF/DOCX/XLSX/PPTX/…
+  // The preferences are persisted to localStorage (setupViewerUiPrefs).
+  const metaPanelOpen = useViewerUiStore((s) => s.metaPanelOpen)
 
   const historyAdd = useHistoryStore((s) => s.add)
   const historyLoad = useHistoryStore((s) => s.load)
@@ -41,20 +176,155 @@ export default function Home() {
     historyLoad()
   }, [historyLoad])
 
-  // Cleanup object URLs on unmount (snapshot current files via ref so this
-  // effect only runs once without re-subscribing on every file change).
-  const filesRef = React.useRef(files)
-  filesRef.current = files
+  // Load persisted viewer UI preferences once after hydration (meta panel /
+  // thumbs sidebar visibility) and keep saving them on every change.
   React.useEffect(() => {
-    return () => {
-      filesRef.current.forEach(revokeLoadedFile)
-    }
+    setupViewerUiPrefs()
   }, [])
 
   const activeFile = React.useMemo(
     () => files.find((f) => f.id === activeId) ?? null,
     [files, activeId],
   )
+
+  /* ---- Compare mode: derived state + self-healing ---- */
+  /** The right pane's file — null when compare mode is off or impossible. */
+  const rightFile = React.useMemo(
+    () => files.find((f) => f.id === rightId) ?? null,
+    [files, rightId],
+  )
+  /** True while both compare panes show the SAME file category — the only
+   *  case where synchronized (proportional) scrolling is offered. */
+  const sameFormatPair = React.useMemo(
+    () =>
+      compareMode &&
+      activeFile != null &&
+      rightFile != null &&
+      activeFile.category === rightFile.category,
+    [compareMode, activeFile, rightFile],
+  )
+  /** Auto-pick for the right pane: the open file AFTER the active one
+   *  (wrapping) — never the active file itself. */
+  const pickRight = React.useCallback(
+    (current: LoadedFile[]) => {
+      if (current.length < 2) return null
+      const idx = current.findIndex((f) => f.id === activeId)
+      if (idx === -1) return current[0].id === activeId ? current[1].id : current[0].id
+      const next = current[(idx + 1) % current.length]
+      return next.id === activeId ? null : next.id
+    },
+    [activeId],
+  )
+  // Files closed / added → repair the compare mode invariants: exit when
+  // fewer than 2 files remain; re-pick the right pane when its file was
+  // closed or became the same as the active (left) one.
+  React.useEffect(() => {
+    if (!compareMode) return
+    if (files.length < 2) {
+      setCompareMode(false)
+      setRightId(null)
+      return
+    }
+    if (!files.some((f) => f.id === rightId) || rightId === activeId) {
+      setRightId(pickRight(files))
+    }
+  }, [files, compareMode, rightId, activeId, pickRight])
+  // Entering compare mode → default the right pane.
+  React.useEffect(() => {
+    if (compareMode && rightId == null && files.length >= 2) {
+      setRightId(pickRight(files))
+    }
+  }, [compareMode, rightId, files, pickRight])
+  // Scroll-sync self-healing: the sync turns itself off whenever the pair
+  // stops being same-format (file switched on either side) or compare mode
+  // ends — same invariant-repair pattern as the pane effects above.
+  React.useEffect(() => {
+    if (syncScroll && !sameFormatPair) setSyncScroll(false)
+  }, [syncScroll, sameFormatPair])
+  /** Toggles compare mode (button in the tabs row; only with 2+ files). */
+  const toggleCompareMode = React.useCallback(() => {
+    setCompareMode((on) => {
+      const next = !on
+      if (next) {
+        toast.info('Режим сравнения: два документа рядом')
+      }
+      return next
+    })
+    // Entering compare always starts fresh: scroll sync OFF (exit is also
+    // covered by the self-healing effect — this is belt-and-braces).
+    setSyncScroll(false)
+  }, [])
+  /** Swaps the left (active) and right panes. */
+  const swapComparePanes = React.useCallback(() => {
+    if (activeId == null || rightId == null) return
+    setActiveId(rightId)
+    setRightId(activeId)
+  }, [activeId, rightId])
+
+  /* ---- Compare mode: proportional scroll sync (same-format pairs) ----
+   * Vertical-only, ratio-based (document heights differ). Capture-phase
+   * listeners sit on the pane <section>s: scroll events do not bubble but
+   * DO propagate while capturing, so ANY descendant scroll container is
+   * seen — robust to viewer content mounting later (e.g. after a document
+   * finishes loading). The ratio is always taken from the pane's MAIN
+   * `.dv-scroll` (getPaneScroller skips the .dv-thumbs sidebar) and driven
+   * into the other pane's main `.dv-scroll`; the write is idempotent, so
+   * a stray event from a secondary scroller merely re-aligns the pair.
+   * Loop guard: raised BEFORE the write, lowered in requestAnimationFrame —
+   * the driven pane's scroll event (scroll steps run before rAF in the
+   * frame) arrives while the guard is still up, so there is no ping-pong.
+   * Deps include the pane file objects: switching a file re-runs the effect
+   * and re-attaches the listeners (the scroller elements are replaced). */
+  const leftPaneRef = React.useRef<HTMLElement | null>(null)
+  const rightPaneRef = React.useRef<HTMLElement | null>(null)
+  const syncingRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (!compareMode || !syncScroll) return
+    const leftPane = leftPaneRef.current
+    const rightPane = rightPaneRef.current
+    if (!leftPane || !rightPane) return
+
+    const makeHandler =
+      (sourcePane: HTMLElement, otherPane: HTMLElement) => () => {
+        if (syncingRef.current) return
+        const src = getPaneScroller(sourcePane)
+        const dst = getPaneScroller(otherPane)
+        if (!src || !dst) return
+        const srcRange = src.scrollHeight - src.clientHeight
+        const dstRange = dst.scrollHeight - dst.clientHeight
+        // Nothing to drive (the other document fits its pane) — skip.
+        // srcRange <= 0 → ratio 0 (top), never a division by zero.
+        if (dstRange <= 0) return
+        const ratio = srcRange > 0 ? src.scrollTop / srcRange : 0
+        syncingRef.current = true
+        dst.scrollTop = ratio * dstRange
+        requestAnimationFrame(() => {
+          syncingRef.current = false
+        })
+      }
+
+    const onLeftScroll = makeHandler(leftPane, rightPane)
+    const onRightScroll = makeHandler(rightPane, leftPane)
+    const opts: AddEventListenerOptions = { capture: true, passive: true }
+    leftPane.addEventListener('scroll', onLeftScroll, opts)
+    rightPane.addEventListener('scroll', onRightScroll, opts)
+    return () => {
+      leftPane.removeEventListener('scroll', onLeftScroll, opts)
+      rightPane.removeEventListener('scroll', onRightScroll, opts)
+      syncingRef.current = false
+    }
+  }, [compareMode, syncScroll, activeFile, rightFile])
+
+  // Keep the browser tab title in sync with the opened document. The
+  // no-file fallback matches the static metadata title in layout.tsx (Next's
+  // metadata hydration overwrites early direct assignments, so the strings
+  // are kept identical to avoid a flash of a different title).
+  React.useEffect(() => {
+    document.title = activeFile
+      ? `${activeFile.name} — DocuViewer`
+      : 'DocuViewer — Client-Side Document Viewer'
+  }, [activeFile])
 
   const ingestFiles = React.useCallback(
     async (incoming: FileList | File[]) => {
@@ -125,20 +395,150 @@ export default function Home() {
     [historyAdd],
   )
 
-  const closeFile = React.useCallback((id: string) => {
-    setFiles((prev) => {
-      const target = prev.find((f) => f.id === id)
-      if (target) revokeLoadedFile(target)
-      const next = prev.filter((f) => f.id !== id)
-      setActiveId((curr) => {
-        if (curr !== id) return curr
-        const idx = prev.findIndex((f) => f.id === id)
+  const closeFile = React.useCallback(
+    (id: string) => {
+      // Closure-based (not updater-based): the updater must stay pure — the
+      // push/revoke side effects run once, here, with the current snapshot.
+      const idx = files.findIndex((f) => f.id === id)
+      if (idx === -1) return
+      const target = files[idx]
+      pushClosed([{ file: target, index: idx }])
+      revokeLoadedFile(target)
+      const next = files.filter((f) => f.id !== id)
+      setFiles(next)
+      if (activeId === id) {
         const neighbor = next[idx] ?? next[idx - 1] ?? null
-        return neighbor ? neighbor.id : null
+        setActiveId(neighbor ? neighbor.id : null)
+      }
+      toast.info(`Вкладка «${target.name}» закрыта`, {
+        description: 'Ctrl+Shift+T — восстановить',
       })
-      return next
+    },
+    [files, activeId, pushClosed],
+  )
+
+  /** Closes every open tab (tabs menu). */
+  const closeAllFiles = React.useCallback(() => {
+    pushClosed(files.map((file, index) => ({ file, index })))
+    files.forEach(revokeLoadedFile)
+    setFiles([])
+    setActiveId(null)
+    toast.info('Все вкладки закрыты', {
+      description: 'Ctrl+Shift+T — восстановить последнюю',
     })
-  }, [])
+  }, [files, pushClosed])
+
+  /** Closes every tab except the active one (tabs menu). */
+  const closeOtherFiles = React.useCallback(() => {
+    const keepId = activeId
+    if (keepId == null) return
+    const closed = files.filter((f) => f.id !== keepId)
+    pushClosed(
+      files
+        .map((file, index) => ({ file, index }))
+        .filter((e) => e.file.id !== keepId),
+    )
+    closed.forEach(revokeLoadedFile)
+    setFiles(files.filter((f) => f.id === keepId))
+    toast.info(`Закрыто вкладок: ${closed.length}`, {
+      description: 'Ctrl+Shift+T — восстановить последнюю',
+    })
+  }, [files, activeId, pushClosed])
+
+  /** Drag-to-reorder handler for the tabs strip (see document-tabs.tsx):
+   * moves the dragged tab before/after the target tab. */
+  const reorderFiles = React.useCallback(
+    (dragId: string, targetId: string, after: boolean) => {
+      setFiles((prev) => {
+        const from = prev.findIndex((f) => f.id === dragId)
+        const to = prev.findIndex((f) => f.id === targetId)
+        if (from === -1 || to === -1 || from === to) return prev
+        const next = [...prev]
+        const [moved] = next.splice(from, 1)
+        const targetIdx = next.findIndex((f) => f.id === targetId)
+        next.splice(after ? targetIdx + 1 : targetIdx, 0, moved)
+        return next
+      })
+    },
+    [],
+  )
+
+  /** Opens the OS file picker (multi-select). An optional `accept` filter
+   *  (e.g. «.pdf» or «.xlsx,.xls,.csv») pre-limits the dialog to one
+   *  format family — used by the landing format cards and Ctrl+O (no
+   *  filter). A hidden input is created imperatively: it never mounts into
+   *  the React tree, so there is nothing to clean up beyond the browser's
+   *  own GC of the detached node after click. */
+  const openFilePicker = React.useCallback(
+    (accept?: string) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.multiple = true
+      if (accept) input.accept = accept
+      input.onchange = () => {
+        if (input.files) ingestFiles(input.files)
+      }
+      input.click()
+    },
+    [ingestFiles],
+  )
+
+  // Global "open file" shortcut (Ctrl/Cmd+O) — opens the OS file picker
+  // from anywhere in the app, like desktop editors. preventDefault stops
+  // the browser's own "open location" dialog.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault()
+        openFilePicker()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [openFilePicker])
+
+  // Restore the last closed tab (Ctrl/Cmd+Shift+T) — the browser's own
+  // "reopen closed browser tab" is reserved by Chrome and never reaches the
+  // page there, but Firefox/Edge deliver it (and the menu item + the close
+  // toast hint work everywhere). No typing-guard: the combo never collides
+  // with text input.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.shiftKey &&
+        e.key.toLowerCase() === 't'
+      ) {
+        e.preventDefault()
+        restoreClosedTab()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [restoreClosedTab])
+
+  // Escape exits the compare mode (when NOT typing — Escape in inputs is
+  // owned by the focused control: the search input clears itself, selects
+  // close, dialogs dismiss). While a viewer is fullscreen the browser uses
+  // Escape to leave fullscreen first, so we stay out of its way then.
+  React.useEffect(() => {
+    if (!compareMode) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      const el = document.activeElement
+      const typing =
+        el &&
+        el !== document.body &&
+        (el.tagName === 'INPUT' ||
+          el.tagName === 'TEXTAREA' ||
+          (el as HTMLElement).isContentEditable)
+      if (typing || document.fullscreenElement) return
+      setCompareMode(false)
+      toast.info('Режим сравнения выключен (Esc)')
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [compareMode])
 
   // Global paste handler (Ctrl+V) for files copied to clipboard
   React.useEffect(() => {
@@ -167,6 +567,65 @@ export default function Home() {
     return () => window.removeEventListener('paste', onPaste)
   }, [ingestFiles])
 
+  // Global drag-and-drop: files can be dropped ANYWHERE on the page (not
+  // only onto the drop zone). While a file is dragged over the window a
+  // full-screen overlay hints that dropping opens the document. Drops that
+  // land on the DropZone itself are handled by its own handlers (they call
+  // preventDefault, so `e.defaultPrevented` tells them apart).
+  const dragDepth = React.useRef(0)
+  React.useEffect(() => {
+    const hasFiles = (e: DragEvent) =>
+      Array.from(e.dataTransfer?.types ?? []).includes('Files')
+
+    const onDragEnter = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      dragDepth.current += 1
+      setDragOverlay(true)
+    }
+    const onDragOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      // Allow the drop anywhere on the page.
+      e.preventDefault()
+    }
+    const onDragLeave = (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      dragDepth.current = Math.max(0, dragDepth.current - 1)
+      if (dragDepth.current === 0) setDragOverlay(false)
+    }
+    const onDrop = (e: DragEvent) => {
+      dragDepth.current = 0
+      setDragOverlay(false)
+      // The drop zone already handled drops on itself.
+      if (e.defaultPrevented) return
+      const dropped = e.dataTransfer?.files
+      if (!dropped || dropped.length === 0) return
+      e.preventDefault()
+      void ingestFiles(dropped)
+      toast.info(
+        dropped.length === 1
+          ? 'Файл открыт перетаскиванием'
+          : `Открыто файлов: ${dropped.length}`,
+      )
+    }
+    const onDragEnd = () => {
+      dragDepth.current = 0
+      setDragOverlay(false)
+    }
+
+    window.addEventListener('dragenter', onDragEnter)
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('dragleave', onDragLeave)
+    window.addEventListener('drop', onDrop)
+    window.addEventListener('dragend', onDragEnd)
+    return () => {
+      window.removeEventListener('dragenter', onDragEnter)
+      window.removeEventListener('dragover', onDragOver)
+      window.removeEventListener('dragleave', onDragLeave)
+      window.removeEventListener('drop', onDrop)
+      window.removeEventListener('dragend', onDragEnd)
+    }
+  }, [ingestFiles])
+
   const hasFiles = files.length > 0
 
   return (
@@ -175,7 +634,7 @@ export default function Home() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-5 py-3 flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
               <FileText className="h-5 w-5" />
             </div>
             <div className="min-w-0">
@@ -211,78 +670,269 @@ export default function Home() {
       {/* Main */}
       <main className="flex-1 mx-auto w-full max-w-[1400px] px-3 sm:px-5 py-4 sm:py-6">
         {!hasFiles ? (
-          <div className="flex flex-col items-center justify-center gap-6 py-6 sm:py-10">
+          <div className="relative flex flex-col items-center justify-center gap-6 py-6 sm:py-10">
+            {/* Decorative gradient blobs (no layout impact) */}
+            <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
+              <div className="dv-blob dv-blob-emerald" />
+              <div className="dv-blob dv-blob-rose" />
+              <div className="dv-blob dv-blob-amber" />
+            </div>
+
             <div className="text-center max-w-2xl space-y-3">
               <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 100% локально · файлы не покидают ваш браузер
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                Откройте и просмотрите документ прямо в браузере
+                Откройте и просмотрите документ{' '}
+                <span className="dv-gradient-text">прямо в браузере</span>
               </h2>
               <p className="text-sm sm:text-base text-muted-foreground">
                 Поддержка PDF, DOCX, XLSX/CSV, PPTX, Markdown, JSON, изображений
-                и RTF. Перетащите файл или выберите кнопкой — всё обрабатывается
-                локально, файлы никуда не загружаются.
+                и RTF. Перетащите файл в любое место страницы или выберите
+                кнопкой — всё обрабатывается локально, файлы никуда не
+                загружаются.
               </p>
             </div>
+
+            {/* Trust strip */}
+            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1">
+                <FileStack className="h-3.5 w-3.5 text-primary/80" />
+                9+ форматов
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                Без сервера
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card/60 px-3 py-1">
+                <Zap className="h-3.5 w-3.5 text-amber-500" />
+                Мгновенное открытие
+              </span>
+            </div>
+
+            {/* Keyboard hints — reinforce the global shortcuts */}
+            <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-foreground/90">
+              <span className="inline-flex items-center gap-1.5">
+                <kbd className="dv-kbd">Ctrl</kbd>
+                <kbd className="dv-kbd">O</kbd>
+                открыть файл
+              </span>
+              <span aria-hidden="true" className="text-border">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <kbd className="dv-kbd">Ctrl</kbd>
+                <kbd className="dv-kbd">V</kbd>
+                вставить из буфера
+              </span>
+              <span aria-hidden="true" className="text-border hidden sm:inline">·</span>
+              <span className="hidden sm:inline-flex items-center gap-1.5">
+                <kbd className="dv-kbd">Ctrl</kbd>
+                <kbd className="dv-kbd">F</kbd>
+                поиск в документе
+              </span>
+            </div>
+
             <DropZone onFiles={ingestFiles} className="w-full max-w-2xl" />
-            <FormatGrid />
+            <FormatGrid onPick={openFilePicker} />
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {/* Tabs row + compact add */}
-            <DocumentTabs
-              files={files}
-              activeId={activeId}
-              onSelect={setActiveId}
-              onClose={closeFile}
-              onAdd={() => {
-                // open file picker
-                const input = document.createElement('input')
-                input.type = 'file'
-                input.multiple = true
-                input.onchange = () => {
-                  if (input.files) ingestFiles(input.files)
-                }
-                input.click()
-              }}
-            />
+            {/* Tabs row + compact add + compare toggle */}
+            <div className="flex items-center gap-1.5">
+              <div className="min-w-0 flex-1">
+                <DocumentTabs
+                  files={files}
+                  activeId={activeId}
+                  onSelect={setActiveId}
+                  onClose={closeFile}
+                  onCloseAll={closeAllFiles}
+                  onCloseOthers={closeOtherFiles}
+                  onReorder={reorderFiles}
+                  restoreName={closedTop}
+                  onRestore={restoreClosedTab}
+                  onAdd={() => openFilePicker()}
+                />
+              </div>
+              {files.length >= 2 && (
+                <Button
+                  type="button"
+                  variant={compareMode ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className={cn(
+                    'h-9 shrink-0 gap-1.5 px-2.5',
+                    compareMode && 'shadow-sm',
+                  )}
+                  onClick={toggleCompareMode}
+                  aria-pressed={compareMode}
+                  title={
+                    compareMode
+                      ? 'Выйти из режима сравнения'
+                      : 'Сравнить два документа рядом'
+                  }
+                >
+                  <Columns2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Сравнить</span>
+                </Button>
+              )}
+            </div>
 
             {/* Compact add-another dropzone */}
             <DropZone onFiles={ingestFiles} compact className="w-full" />
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1.5"
-                onClick={() => setShowMeta((s) => !s)}
-              >
-                <PanelsTopLeft className="h-3.5 w-3.5" />
-                {showMeta ? 'Скрыть панель файла' : 'Показать панель файла'}
-              </Button>
-            </div>
+            {/* Viewer + metadata panel (single mode) OR compare split.
+                Single mode: the metadata panel visibility comes from the
+                global store and is toggled by the "Скрыть панель файла"
+                button in the unified viewer toolbar (ViewerShell). When the
+                panel is closed the aside is not rendered at all, so the
+                viewer stretches over the full available width. The top tabs
+                row is NEVER affected.
+                Compare mode: two panes side-by-side (left = active tab,
+                right = chosen file); the metadata panel is hidden to give
+                both panes maximum width; global shortcuts belong to the
+                LEFT pane (first shell in DOM order — see viewer-shell.tsx). */}
+            {activeFile && compareMode && rightFile ? (
+              <div className="flex flex-col gap-2" data-compare-active="true">
+                {/* Compare toolbar: left select · swap · right select · exit */}
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/60 px-2.5 py-1.5">
+                  <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                    <Columns2 className="size-4 text-primary/80" aria-hidden />
+                    <span className="hidden sm:inline">Сравнение</span>
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:justify-center">
+                    <Select
+                      value={activeId ?? undefined}
+                      onValueChange={setActiveId}
+                      aria-label="Левая панель сравнения"
+                    >
+                      <SelectTrigger className="h-8 w-full min-w-0 max-w-[240px] text-xs">
+                        <SelectValue placeholder="Левая панель" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {files
+                          .filter((f) => f.id !== rightId)
+                          .map((f) => (
+                            <SelectItem key={f.id} value={f.id} className="text-xs">
+                              <span className="max-w-[220px] truncate">{f.name}</span>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="size-8 shrink-0"
+                      onClick={swapComparePanes}
+                      aria-label="Поменять панели местами"
+                      title="Поменять панели местами"
+                    >
+                      <ArrowLeftRight className="size-4" />
+                    </Button>
+                    <Select
+                      value={rightId ?? undefined}
+                      onValueChange={setRightId}
+                      aria-label="Правая панель сравнения"
+                    >
+                      <SelectTrigger className="h-8 w-full min-w-0 max-w-[240px] text-xs">
+                        <SelectValue placeholder="Правая панель" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {files
+                          .filter((f) => f.id !== activeId)
+                          .map((f) => (
+                            <SelectItem key={f.id} value={f.id} className="text-xs">
+                              <span className="max-w-[220px] truncate">{f.name}</span>
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    {/* Scroll-sync toggle — same-format pairs only. When the
+                        categories differ the button is not rendered at all
+                        (the hint line below explains why). */}
+                    {sameFormatPair && (
+                      <Button
+                        type="button"
+                        variant={syncScroll ? 'secondary' : 'outline'}
+                        size="sm"
+                        className={cn(
+                          'h-8 shrink-0 gap-1.5 px-2.5',
+                          syncScroll && 'shadow-sm',
+                        )}
+                        onClick={() => setSyncScroll((on) => !on)}
+                        aria-pressed={syncScroll}
+                        title={
+                          syncScroll
+                            ? 'Прокрутка панелей синхронизируется пропорционально'
+                            : 'Включить синхронную (пропорциональную) прокрутку панелей'
+                        }
+                      >
+                        {syncScroll ? (
+                          <Link2 className="size-4 text-primary" />
+                        ) : (
+                          <Link2Off className="size-4 text-muted-foreground" />
+                        )}
+                        <span className="hidden sm:inline">Синхр. прокрутка</span>
+                      </Button>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0"
+                    onClick={toggleCompareMode}
+                    aria-label="Выйти из режима сравнения"
+                    title="Выйти из режима сравнения"
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
 
-            {/* Viewer + metadata */}
-            {activeFile && (
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,1fr)_320px]">
+                {/* Panes: side-by-side from lg, stacked on mobile. */}
+                <div className="grid grid-cols-1 gap-2 lg:grid-cols-2 lg:items-stretch">
+                  <section
+                    ref={leftPaneRef}
+                    className="dv-compare-pane min-w-0 flex flex-col h-[60dvh] min-h-[380px] lg:h-[calc(100dvh-375px)] overflow-hidden"
+                    aria-label="Документ для сравнения (левая панель)"
+                  >
+                    <ViewerFrame file={activeFile} />
+                  </section>
+                  <section
+                    ref={rightPaneRef}
+                    className="dv-compare-pane min-w-0 flex flex-col h-[60dvh] min-h-[380px] lg:h-[calc(100dvh-375px)] overflow-hidden"
+                    aria-label="Документ для сравнения (правая панель)"
+                  >
+                    <ViewerFrame file={rightFile} />
+                  </section>
+                </div>
+                <p className="hidden text-center text-[11px] text-muted-foreground/80 lg:block">
+                  Левая панель следует за активной вкладкой; горячие клавиши
+                  действуют на левую панель. Esc — выход из сравнения.
+                  {sameFormatPair && syncScroll && ' Панели прокручиваются синхронно.'}
+                  {!sameFormatPair &&
+                    ' Синхронная прокрутка доступна для файлов одного формата.'}
+                </p>
+              </div>
+            ) : activeFile ? (
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
                 <section
-                  className="min-h-[60vh] rounded-xl border border-border bg-card/40 overflow-hidden"
+                  className="min-w-0 flex-1 h-[65dvh] min-h-[420px] lg:h-[calc(100dvh-295px)] rounded-xl border border-border bg-card/40 overflow-hidden"
                   aria-label="Просмотр документа"
                 >
                   <ViewerFrame file={activeFile} />
                 </section>
-                <aside
-                  className={cn(
-                    'rounded-xl border border-border bg-card/40 p-4 h-fit lg:sticky lg:top-[76px]',
-                    !showMeta && 'hidden lg:block',
-                  )}
-                >
-                  <FileMetadata file={activeFile} />
-                </aside>
+                {metaPanelOpen && (
+                  <aside
+                    className={cn(
+                      'dv-aside-in rounded-xl border border-border bg-card/40 p-4 shrink-0',
+                      'lg:sticky lg:top-[76px] lg:self-start lg:h-fit lg:w-[300px] xl:w-[320px]',
+                    )}
+                  >
+                    <FileMetadata file={activeFile} />
+                  </aside>
+                )}
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -291,6 +941,26 @@ export default function Home() {
             <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-4 shadow-xl pointer-events-auto">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <span className="text-sm font-medium">Обработка файла…</span>
+            </div>
+          </div>
+        )}
+
+        {/* Full-screen "drop anywhere" overlay */}
+        {dragOverlay && (
+          <div
+            className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-8 backdrop-blur-sm"
+            aria-hidden="true"
+          >
+            <div className="dv-drop-overlay flex max-w-md flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-primary/60 bg-card/95 px-10 py-12 text-center shadow-2xl">
+              <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <UploadCloud className="size-8 dv-float" />
+              </div>
+              <p className="text-lg font-semibold tracking-tight">
+                Отпустите файл, чтобы открыть
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Файл будет обработан локально прямо в вашем браузере
+              </p>
             </div>
           </div>
         )}
@@ -316,35 +986,139 @@ export default function Home() {
   )
 }
 
-function FormatGrid() {
-  const formats: Array<{ label: string; ext: string; color: string }> = [
-    { label: 'PDF', ext: 'pdf', color: 'bg-rose-500/15 text-rose-700 dark:text-rose-300' },
-    { label: 'Word', ext: 'docx', color: 'bg-sky-500/15 text-sky-700 dark:text-sky-300' },
-    { label: 'Excel', ext: 'xlsx', color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
-    { label: 'PowerPoint', ext: 'pptx', color: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
-    { label: 'Markdown', ext: 'md', color: 'bg-violet-500/15 text-violet-700 dark:text-violet-300' },
-    { label: 'JSON', ext: 'json', color: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-    { label: 'Текст', ext: 'txt', color: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300' },
-    { label: 'Изображения', ext: 'img', color: 'bg-teal-500/15 text-teal-700 dark:text-teal-300' },
-    { label: 'RTF', ext: 'rtf', color: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300' },
-  ]
+/* ------------------------------------------------------------------ */
+/*  Landing page: format cards grid                                    */
+/* ------------------------------------------------------------------ */
+
+interface FormatCard {
+  label: string
+  desc: string
+  ext: string
+  /** `accept` filter for the OS file picker (comma-separated extensions). */
+  accept: string
+  icon: LucideIcon
+  badge: string
+}
+
+const FORMAT_CARDS: FormatCard[] = [
+  {
+    label: 'PDF',
+    desc: 'Документы с точной вёрсткой',
+    ext: 'pdf',
+    accept: '.pdf',
+    icon: FileText,
+    badge: 'bg-rose-500/12 text-rose-600 dark:text-rose-300 border-rose-500/25',
+  },
+  {
+    label: 'Word',
+    desc: 'Текстовые документы',
+    ext: 'docx',
+    accept: '.docx',
+    icon: FileType2,
+    badge: 'bg-sky-500/12 text-sky-700 dark:text-sky-300 border-sky-500/25',
+  },
+  {
+    label: 'Excel',
+    desc: 'Таблицы и листы',
+    ext: 'xlsx',
+    accept: '.xlsx,.xls,.csv',
+    icon: FileSpreadsheet,
+    badge: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300 border-emerald-500/25',
+  },
+  {
+    label: 'PowerPoint',
+    desc: 'Презентации и слайды',
+    ext: 'pptx',
+    accept: '.pptx,.ppt',
+    icon: Presentation,
+    badge: 'bg-orange-500/12 text-orange-700 dark:text-orange-300 border-orange-500/25',
+  },
+  {
+    label: 'Markdown',
+    desc: 'Заметки и документация',
+    ext: 'md',
+    accept: '.md,.markdown',
+    icon: FileCode,
+    badge: 'bg-violet-500/12 text-violet-700 dark:text-violet-300 border-violet-500/25',
+  },
+  {
+    label: 'JSON',
+    desc: 'Структурированные данные',
+    ext: 'json',
+    accept: '.json',
+    icon: Braces,
+    badge: 'bg-amber-500/12 text-amber-700 dark:text-amber-300 border-amber-500/25',
+  },
+  {
+    label: 'Текст',
+    desc: 'TXT и LOG файлы',
+    ext: 'txt',
+    accept: '.txt,.log,.text',
+    icon: FileText,
+    badge: 'bg-zinc-500/12 text-zinc-700 dark:text-zinc-300 border-zinc-500/25',
+  },
+  {
+    label: 'Изображения',
+    desc: 'PNG, JPG, GIF, SVG, WebP',
+    ext: 'png',
+    accept: '.png,.jpg,.jpeg,.gif,.svg,.webp',
+    icon: ImageIcon,
+    badge: 'bg-teal-500/12 text-teal-700 dark:text-teal-300 border-teal-500/25',
+  },
+  {
+    label: 'RTF',
+    desc: 'Rich Text Format',
+    ext: 'rtf',
+    accept: '.rtf',
+    icon: FileType2,
+    badge: 'bg-fuchsia-500/12 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/25',
+  },
+]
+
+function FormatGrid({ onPick }: { onPick: (accept: string) => void }) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl">
-      {formats.map((f) => (
-        <div
-          key={f.label}
-          className={cn(
-            'flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium',
-            f.color,
-          )}
-        >
-          <span>{f.label}</span>
-          <span className="text-[10px] uppercase opacity-60">.{f.ext}</span>
-        </div>
-      ))}
+    <div
+      className="grid w-full max-w-2xl grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5"
+      aria-label="Поддерживаемые форматы"
+    >
+      {FORMAT_CARDS.map((f) => {
+        const Icon = f.icon
+        return (
+          <button
+            key={f.label}
+            type="button"
+            onClick={() => onPick(f.accept)}
+            aria-label={`Открыть ${f.label} — выбрать файл (${f.accept})`}
+            title={`Выбрать ${f.label} файл (${f.accept})`}
+            className="dv-format-card group flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-card/70 px-3 py-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-border/80 hover:bg-card hover:shadow-md focus-visible:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring active:translate-y-0"
+          >
+            <span
+              className={cn(
+                'inline-flex size-8 shrink-0 items-center justify-center rounded-md border transition-transform group-hover:scale-105',
+                f.badge,
+              )}
+              aria-hidden="true"
+            >
+              <Icon className="size-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold leading-tight">
+                {f.label}
+              </span>
+              <span className="block truncate text-[11px] text-muted-foreground leading-tight">
+                {f.desc}
+              </span>
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }
+
+/* ------------------------------------------------------------------ */
+/*  About dialog                                                       */
+/* ------------------------------------------------------------------ */
 
 function AboutDialog() {
   return (
@@ -372,6 +1146,12 @@ function AboutDialog() {
             PDF (pdf.js), DOCX (docx-preview), XLSX/XLS/CSV (SheetJS), PPTX
             (извлечение текста/изображений по слайдам), TXT/Markdown
             (markdown-it + highlight.js), JSON, изображения и RTF.
+          </p>
+          <p>
+            <strong className="text-foreground">Горячие клавиши.</strong> Ctrl+P —
+            печать документа, F — полноэкранный режим, ←/→ — страницы, +/−/0 —
+            масштаб. Полный список доступен по кнопке со значком клавиатуры в
+            панели инструментов просмотрщика.
           </p>
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-800 dark:text-amber-200">
             <p className="font-medium mb-1">⚠️ Ограничения</p>

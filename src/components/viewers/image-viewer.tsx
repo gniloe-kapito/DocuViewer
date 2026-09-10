@@ -1,18 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import {
-  ZoomIn,
-  ZoomOut,
-  RotateCw,
-  RotateCcw,
-  Maximize,
-  AlertCircle,
-  ImageIcon,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { AlertCircle, Moon, Sun } from 'lucide-react'
 import { toast } from 'sonner'
+
+import { Button } from '@/components/ui/button'
+import { ViewerShell } from '@/components/viewer-shell'
+import { useViewerUiStore } from '@/lib/viewer-ui-store'
+import { cn } from '@/lib/utils'
 import type { LoadedFile } from '@/lib/viewers/types'
 
 interface ViewerProps {
@@ -32,6 +27,15 @@ export function ImageViewer({ file }: ViewerProps) {
 
   const containerRef = React.useRef<HTMLDivElement>(null)
   const imgRef = React.useRef<HTMLImageElement>(null)
+  // Points at the centred box (boxW × boxH) that wraps the <img> so that
+  // printing captures the image itself, not the scroll container.
+  const printRootRef = React.useRef<HTMLDivElement>(null)
+
+  /* «Night mode» — screen-only colour inversion of the picture (the same
+   * global flag the PDF viewer uses). The print/export clone strips the
+   * class, so printed/exported images keep their natural colours. */
+  const nightMode = useViewerUiStore((s) => s.nightMode)
+  const toggleNightMode = useViewerUiStore((s) => s.toggleNightMode)
 
   // Reset transient state when the source changes.
   React.useEffect(() => {
@@ -69,6 +73,8 @@ export function ImageViewer({ file }: ViewerProps) {
 
   const zoomIn = () => setScale((s) => clampScale(s + 0.1))
   const zoomOut = () => setScale((s) => clampScale(s - 0.1))
+  // Preserved pre-migration behaviour: reset restores 100% scale *and*
+  // clears the rotation.
   const reset = () => {
     setScale(1)
     setRotation(0)
@@ -88,90 +94,60 @@ export function ImageViewer({ file }: ViewerProps) {
   const boxH = isQuarter ? scaledW : scaledH
 
   return (
-    <div className="dv-scroll h-full overflow-auto flex flex-col">
-      {/* Toolbar */}
-      <div className="sticky top-0 z-10 bg-card/90 backdrop-blur border-b border-border">
-        <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={zoomOut}
-            title="Уменьшить"
-            aria-label="Уменьшить"
-            disabled={scale <= MIN_SCALE}
-          >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <span
-            className="text-sm tabular-nums min-w-[3.5rem] text-center select-none"
-            aria-live="polite"
-          >
-            {Math.round(scale * 100)}%
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={zoomIn}
-            title="Увеличить"
-            aria-label="Увеличить"
-            disabled={scale >= MAX_SCALE}
-          >
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={reset}
-            title="Сбросить масштаб и поворот"
-          >
-            <Maximize className="h-4 w-4" />
-            100%
-          </Button>
-
-          <div className="mx-1 h-5 w-px bg-border" />
-
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={rotateLeft}
-            title="Повернуть влево на 90°"
-            aria-label="Повернуть влево"
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={rotateRight}
-            title="Повернуть вправо на 90°"
-            aria-label="Повернуть вправо"
-          >
-            <RotateCw className="h-4 w-4" />
-          </Button>
-
-          <div className="mx-1 h-5 w-px bg-border" />
-
-          {naturalSize ? (
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {naturalSize.w} × {naturalSize.h} px
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground">загрузка…</span>
+    <ViewerShell
+      file={file}
+      category="image"
+      zoom={{
+        value: Math.round(scale * 100),
+        min: 10,
+        max: 400,
+        onZoomIn: zoomIn,
+        onZoomOut: zoomOut,
+        onReset: reset,
+        isReset: scale === 1 && rotation === 0,
+      }}
+      rotate={{
+        onRotateLeft: rotateLeft,
+        onRotateRight: rotateRight,
+      }}
+      download={{ mode: 'original' }}
+      printRootRef={printRootRef}
+      toolbarEnd={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn(
+            'size-8 text-muted-foreground',
+            nightMode &&
+              'bg-accent/70 text-accent-foreground hover:bg-accent',
           )}
-
-          <span
-            className="ml-auto text-xs text-muted-foreground truncate max-w-[40ch]"
-            title={file.name}
-          >
-            {file.name}
+          onClick={toggleNightMode}
+          aria-pressed={nightMode}
+          title={
+            nightMode
+              ? 'Выключить ночной режим (вернуть естественные цвета)'
+              : 'Ночной режим — инверсия цветов изображения'
+          }
+          aria-label={
+            nightMode ? 'Выключить ночной режим' : 'Включить ночной режим'
+          }
+        >
+          {nightMode ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </Button>
+      }
+      centerExtra={
+        naturalSize ? (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {naturalSize.w} × {naturalSize.h} px
           </span>
-        </div>
-      </div>
-
-      {/* Image area */}
+        ) : null
+      }
+    >
+      {/* Checkerboard scroll area */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto"
+        className="dv-scroll h-full flex-1 overflow-auto"
         style={{
           backgroundColor: 'var(--muted)',
           backgroundImage:
@@ -188,7 +164,11 @@ export function ImageViewer({ file }: ViewerProps) {
           </div>
         ) : (
           <div
-            className="flex items-center justify-center overflow-hidden"
+            ref={printRootRef}
+            className={cn(
+              'flex items-center justify-center overflow-hidden',
+              nightMode && 'dv-night',
+            )}
             style={{
               width: boxW || '100%',
               height: boxH || '100%',
@@ -217,6 +197,6 @@ export function ImageViewer({ file }: ViewerProps) {
           </div>
         )}
       </div>
-    </div>
+    </ViewerShell>
   )
 }

@@ -1,4 +1,4 @@
-import type { FileCategory, LoadedFile } from './types'
+import type { FileCategory, LoadedFile } from './viewers/types'
 
 export function getExtension(name: string): string {
   const lastDot = name.lastIndexOf('.')
@@ -77,24 +77,24 @@ export function detectCategory(
 /**
  * Format a byte count into a human-readable string with the correct unit.
  *
- * Robust against any input type (NaN / Infinity / negative / non-number) so a
- * bad value never produces a misleading label like "647 МБ" for a 20 КБ file.
- * The unit list is long enough to rollover cleanly up to petabytes, and the
- * divisor loop guarantees the chosen unit always matches the magnitude.
+ * The units array is 0-indexed by the POWER of 1024 (Б=1024^0, КБ=1024^1, …)
+ * and the divisor loop increments the index once per division, so the index
+ * always matches the magnitude. This fixes an off-by-one that previously made
+ * a 20 КБ file render as "20.0 МБ" (and 647 КБ as "647 МБ") — the array started
+ * at 'КБ' but was indexed by the division count, labelling everything one
+ * unit too large.
  */
 export function formatBytes(bytes: unknown): string {
   const raw = typeof bytes === 'number' ? bytes : Number(bytes)
   if (!Number.isFinite(raw) || raw < 0) return '0 Б'
-  const n = Math.floor(raw)
-  if (n < 1024) return `${n} Б`
-  const units = ['КБ', 'МБ', 'ГБ', 'ТБ', 'ПБ']
-  let value = n
+  const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ', 'ПБ']
+  let value = Math.floor(raw)
   let i = 0
   while (value >= 1024 && i < units.length - 1) {
     value /= 1024
     i++
   }
-  const decimals = value < 10 ? 1 : value < 100 ? 1 : 0
+  const decimals = i === 0 ? 0 : value < 100 ? 1 : 0
   return `${value.toFixed(decimals)} ${units[i]}`
 }
 

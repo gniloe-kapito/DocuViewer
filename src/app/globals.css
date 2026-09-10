@@ -237,14 +237,73 @@
 .dark .dv-json-number { color: oklch(0.82 0.16 60); }
 .dark .dv-json-bool { color: oklch(0.8 0.18 300); }
 
+/* ---- Search highlights (shared by PDF / DOCX / TXT viewers) ----
+   Applied to <mark> elements produced by in-document search. The active
+   match (the one the viewer navigated to) uses the stronger variant. */
+.dv-hl {
+  background: color-mix(in oklch, oklch(0.85 0.16 85) 45%, transparent);
+  color: inherit;
+  border-radius: 0.2em;
+  padding: 0.02em 0.08em;
+  margin: 0 -0.02em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.dark .dv-hl {
+  background: color-mix(in oklch, oklch(0.62 0.14 80) 45%, transparent);
+}
+.dv-hl-active {
+  background: oklch(0.76 0.16 70);
+  color: oklch(0.24 0.04 70);
+}
+.dark .dv-hl-active {
+  background: oklch(0.68 0.15 70);
+  color: oklch(0.16 0.02 70);
+}
+/* Keep the highlight visible on paper output. */
+@media print {
+  .dv-hl,
+  .dv-hl-active {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
 /* PDF page canvas holder */
-.dv-pdf-page { margin: 0 auto 1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.12); background: white; }
+.dv-pdf-page {
+  margin: 0 auto 1rem;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    0 6px 20px -4px rgba(0, 0, 0, 0.12);
+  background: white;
+}
+
+/* ---- «Night mode» (screen-only colour inversion) ----
+   Applied to the pages host (PDF) / image wrapper by the viewers via the
+   global `nightMode` store flag. Only the page CANVASES and the picture
+   itself are inverted — the amber search-rect overlays, page shadows and
+   the surrounding chrome keep their natural colours. hue-rotate(180°)
+   keeps hues recognisable (blues stay blue) after inversion. Print/export
+   clones strip the class (see buildPrintClone), so paper output is never
+   affected. */
+.dv-night .dv-pdf-page canvas,
+.dv-night img {
+  filter: invert(1) hue-rotate(180deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dv-night .dv-pdf-page canvas,
+  .dv-night img {
+    transition: filter 160ms ease;
+  }
+}
 
 /* Slide rendering for PPTX */
 .dv-slide {
   background: white;
   color: #111;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    0 8px 24px -6px rgba(0, 0, 0, 0.16);
   margin: 0 auto 1.25rem;
   position: relative;
   overflow: hidden;
@@ -342,7 +401,9 @@
 }
 .dv-docx-host2 .docx-wrapper > section.docx {
   margin: 0 auto 1rem !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.1),
+    0 6px 20px -4px rgba(0, 0, 0, 0.12);
   background: white;
   color: #111;
   max-width: 100%;
@@ -361,3 +422,856 @@
   background: color-mix(in oklch, var(--muted) 50%, transparent);
   color: var(--muted-foreground);
 }
+
+/* ---- ViewerShell: generic left thumbnails sidebar (all formats) ---- */
+.dv-thumbs {
+  width: 168px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--muted) 45%, transparent),
+    color-mix(in oklch, var(--muted) 25%, transparent)
+  );
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+@media (max-width: 640px) {
+  .dv-thumbs { width: 116px; }
+}
+/* Sticky mini-header with the sidebar label ("Миниатюры страниц"…). */
+.dv-thumbs-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: -0.5rem -0.5rem 0.5rem;
+  padding: 0.4rem 0.65rem 0.35rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted-foreground);
+  background: color-mix(in oklch, var(--muted) 70%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--border);
+}
+.dv-thumbs-edge {
+  width: 1.25rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid var(--border);
+  background: color-mix(in oklch, var(--muted) 20%, transparent);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, width 0.15s ease;
+}
+.dv-thumbs-edge:hover {
+  background: color-mix(in oklch, var(--accent) 60%, transparent);
+  color: var(--accent-foreground);
+}
+.dv-thumbs-edge:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/* generic thumbnail item (PDF canvas thumbs, DOCX scaled clones, PPTX minis) */
+.dv-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  border: 2px solid transparent;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  background: white;
+  text-align: left;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+.dv-thumb canvas,
+.dv-thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.dv-thumb:hover {
+  border-color: color-mix(in oklch, var(--primary) 50%, transparent);
+  transform: translateY(-1px);
+}
+.dv-thumb:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.dv-thumb[data-active="true"] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 25%, transparent);
+}
+.dv-thumb-num {
+  position: absolute;
+  left: 0.25rem;
+  bottom: 0.25rem;
+  z-index: 1;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0 0.3rem;
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+}
+/* scaled DOM clone inside a DOCX thumbnail */
+.dv-thumb-clone {
+  position: relative;
+  overflow: hidden;
+  background: white;
+}
+.dv-thumb-clone > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+}
+
+/* sheet list entries (XLSX sidebar) */
+.dv-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.dv-sheet-item:hover {
+  background: color-mix(in oklch, var(--accent) 55%, transparent);
+}
+.dv-sheet-item[data-active="true"] {
+  border-color: color-mix(in oklch, var(--primary) 45%, transparent);
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  font-weight: 600;
+}
+
+/* ---- Print scaffolding (toolbar print button → window.print) ---- */
+.dv-print-holder {
+  display: none;
+}
+@media print {
+  @page {
+    margin: 0;
+  }
+  body.dv-print-mode > *:not(.dv-print-holder) {
+    display: none !important;
+  }
+  body.dv-print-mode > .dv-print-holder {
+    display: block !important;
+  }
+  .dv-print-holder * {
+    box-shadow: none !important;
+  }
+  /* Print at natural size even if the viewer is zoomed (XLSX zoom). */
+  body.dv-print-mode .dv-print-holder [style] {
+    zoom: 1 !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Landing page decorations                                           */
+/* ------------------------------------------------------------------ */
+
+/* Gradient text accent for the hero heading */
+.dv-gradient-text {
+  background: linear-gradient(
+    100deg,
+    oklch(0.55 0.16 160),
+    oklch(0.62 0.18 70),
+    oklch(0.58 0.19 20)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.dark .dv-gradient-text {
+  background: linear-gradient(
+    100deg,
+    oklch(0.78 0.15 160),
+    oklch(0.84 0.14 80),
+    oklch(0.75 0.16 30)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Soft blurred colour blobs behind the hero (no layout impact) */
+.dv-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.14;
+  pointer-events: none;
+}
+.dark .dv-blob {
+  opacity: 0.1;
+}
+.dv-blob-emerald {
+  width: 420px;
+  height: 420px;
+  top: -160px;
+  left: -120px;
+  background: radial-gradient(circle, oklch(0.7 0.17 162) 0%, transparent 70%);
+  animation: dv-blob-float 18s ease-in-out infinite alternate;
+}
+.dv-blob-rose {
+  width: 380px;
+  height: 380px;
+  bottom: -140px;
+  right: -100px;
+  background: radial-gradient(circle, oklch(0.7 0.19 15) 0%, transparent 70%);
+  animation: dv-blob-float 22s ease-in-out infinite alternate-reverse;
+}
+.dv-blob-amber {
+  width: 300px;
+  height: 300px;
+  top: 30%;
+  right: 22%;
+  background: radial-gradient(circle, oklch(0.78 0.16 75) 0%, transparent 70%);
+  animation: dv-blob-float 26s ease-in-out infinite alternate;
+}
+
+@keyframes dv-blob-float {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  100% {
+    transform: translate(40px, 30px) scale(1.08);
+  }
+}
+
+/* ---- "Drop anywhere" full-screen overlay ---- */
+.dv-drop-overlay {
+  animation: dv-overlay-in 0.18s ease-out;
+  border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+}
+@keyframes dv-overlay-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Gentle float for the overlay upload icon */
+.dv-float {
+  animation: dv-float 1.6s ease-in-out infinite;
+}
+@keyframes dv-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Respect users who prefer no motion */
+@media (prefers-reduced-motion: reduce) {
+  .dv-blob,
+  .dv-float,
+  .dv-drop-overlay {
+    animation: none !important;
+  }
+  .dv-blob {
+    transform: none !important;
+  }
+  .dv-thumb,
+  .dv-thumbs-edge {
+    transition: none !important;
+  }
+  .dv-thumb:hover {
+    transform: none !important;
+  }
+}
+
+/* ---- Document tabs strip: scroll affordance ---- */
+/* Fade masks on the strip's left/right edge, shown while more tabs are
+   scrollable in that direction. Controlled via data-at-start / data-at-end. */
+.dv-tabs-wrap {
+  position: relative;
+  min-width: 0;
+}
+.dv-tabs-fade {
+  position: absolute;
+  top: 0;
+  bottom: 4px; /* keep clear of the strip's pb-1 */
+  width: 2.5rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1;
+}
+.dv-tabs-fade-left {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    var(--background),
+    transparent
+  );
+}
+.dv-tabs-fade-right {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    var(--background),
+    transparent
+  );
+}
+.dv-tabs-wrap[data-at-start="false"] .dv-tabs-fade-left {
+  opacity: 1;
+}
+.dv-tabs-wrap[data-at-end="false"] .dv-tabs-fade-right {
+  opacity: 1;
+}
+
+/* Keep the highlight visible on paper output. */
+@media print {
+  .dv-hl,
+  .dv-hl-active {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Rectangular overlay highlights over the PDF page canvases (positioned
+   absolutely by the viewer inside the [data-dv-page] container). */
+.dv-hl-rect {
+  position: absolute;
+  border-radius: 2px;
+  background: color-mix(in oklch, oklch(0.85 0.16 85) 40%, transparent);
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  transition: background 0.15s ease;
+}
+.dark .dv-hl-rect {
+  background: color-mix(in oklch, oklch(0.62 0.14 80) 55%, transparent);
+  mix-blend-mode: normal;
+}
+.dv-hl-rect-active {
+  background: oklch(0.76 0.16 70 / 0.85);
+  box-shadow: 0 0 0 2px oklch(0.76 0.16 70 / 0.6);
+}
+.dark .dv-hl-rect-active {
+  background: oklch(0.68 0.15 70 / 0.85);
+  box-shadow: 0 0 0 2px oklch(0.68 0.15 70 / 0.6);
+}
+/* cache-bust: force recompile */
+
+/* ---- PDF outline («Оглавление») sidebar section ---- */
+.dv-outline-title {
+  margin: 0 0 0.4rem;
+  padding: 0 0.15rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.dv-outline-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.3rem 0.45rem;
+  border-radius: 0.4rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.dv-outline-item:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--accent) 55%, transparent);
+}
+.dv-outline-item:disabled {
+  cursor: default;
+  color: var(--muted-foreground);
+}
+.dv-outline-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.dv-outline-item[data-active="true"] {
+  border-color: color-mix(in oklch, var(--primary) 45%, transparent);
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  font-weight: 600;
+}
+.dv-outline-page {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  background: color-mix(in oklch, var(--muted) 55%, transparent);
+  border-radius: 9999px;
+  padding: 0 0.35rem;
+  min-width: 1.1rem;
+  text-align: center;
+}
+.dv-outline-twist {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.3rem;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.dv-outline-twist:hover {
+  background: color-mix(in oklch, var(--accent) 60%, transparent);
+  color: var(--accent-foreground);
+}
+.dv-outline-twist:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+/* bullet line for leaf nodes (no children) */
+.dv-outline-dot {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1px;
+  display: inline-block;
+  background: var(--border);
+}
+
+/* Subtle dot-grid backdrop for the document scroll area — used behind
+   PDF pages so the "paper" pops (design-tool aesthetic). */
+.dv-doc-bg {
+  background-color: color-mix(in oklch, var(--muted) 30%, transparent);
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--muted-foreground) 22%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  background-position: -11px -11px;
+}
+.dark .dv-doc-bg {
+  background-color: color-mix(in oklch, var(--muted) 25%, transparent);
+  background-image: radial-gradient(
+    color-mix(in oklch, var(--muted-foreground) 16%, transparent) 1px,
+    transparent 1px
+  );
+}
+
+/* cache-bust 2 */
+
+/* ==================== Styling polish round (Task 7) ==================== */
+
+/* ---- Themed text selection ----
+   A soft primary-tinted selection so marked-by-browser text matches the
+   app palette (default browser blue would clash with the zinc theme). */
+::selection {
+  background: color-mix(in oklch, var(--primary) 22%, transparent);
+  color: inherit;
+}
+.dark ::selection {
+  background: color-mix(in oklch, var(--primary) 35%, transparent);
+}
+
+/* ---- <kbd> chips (landing keyboard hints, shortcut help) ---- */
+.dv-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 0.35rem;
+  box-shadow: 0 1px 0 color-mix(in oklch, var(--muted-foreground) 20%, transparent);
+}
+
+/* ---- Active search match: one-shot pulse ----
+   When the viewer navigates to a match, the newly-active mark/rect plays a
+   short "breathing" pulse so the eye lands on it instantly. The animation
+   runs once on class application (element is re-created or class toggles),
+   respects prefers-reduced-motion, and stays subtle in print. */
+@keyframes dv-hl-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklch, oklch(0.76 0.16 70) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 6px color-mix(in oklch, oklch(0.76 0.16 70) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.dv-hl-active {
+  animation: dv-hl-pulse 0.5s ease-out 1;
+}
+.dv-hl-rect-active {
+  animation: dv-hl-pulse 0.5s ease-out 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv-hl-active,
+  .dv-hl-rect-active {
+    animation: none;
+  }
+}
+@media print {
+  .dv-hl-active,
+  .dv-hl-rect-active {
+    animation: none;
+  }
+}
+
+/* ---- Landing format grid: staggered entrance ----
+   Cards rise in with a small per-card delay (CSS only — the nth-child
+   delays cap at 9 so longer lists render without artificial waits).
+   Disabled for reduced-motion users. */
+@keyframes dv-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.dv-format-card {
+  animation: dv-card-in 0.35s ease-out both;
+}
+.dv-format-card:nth-child(1) { animation-delay: 0.02s; }
+.dv-format-card:nth-child(2) { animation-delay: 0.05s; }
+.dv-format-card:nth-child(3) { animation-delay: 0.08s; }
+.dv-format-card:nth-child(4) { animation-delay: 0.11s; }
+.dv-format-card:nth-child(5) { animation-delay: 0.14s; }
+.dv-format-card:nth-child(6) { animation-delay: 0.17s; }
+.dv-format-card:nth-child(7) { animation-delay: 0.2s; }
+.dv-format-card:nth-child(8) { animation-delay: 0.23s; }
+.dv-format-card:nth-child(9) { animation-delay: 0.26s; }
+.dv-format-card:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv-format-card {
+    animation: none;
+  }
+}
+
+/* ---- Tab strip polish ----
+   The ACTIVE tab carries a 2px primary-coloured top hairline (inset shadow —
+   zero layout shift): the classic "editor tab" accent makes the open file
+   instantly spottable in a crowded strip, even in peripheral vision. Tabs are
+   keyboard-focusable (role=tab + tabIndex) — the focus ring below keeps
+   keyboard navigation visible. Middle-click-to-close stays discoverable via
+   the cursor feedback (cursor: default on the × button would fight it). */
+.dv-tab {
+  cursor: pointer;
+  user-select: none;
+}
+.dv-tab[data-active='true'] {
+  box-shadow:
+    inset 0 2px 0 0 var(--primary),
+    0 -1px 0 0 var(--border) inset;
+}
+.dv-tab[data-active='true'] > span:first-child {
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 25%, transparent);
+}
+.dv-tab:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/* Drag-reorder insertion indicator (see document-tabs.tsx). One clear
+   indicator at a time: while the pointer hovers a tab, the side hairline
+   REPLACES the active-tab top accent — the [data-active] qualifier raises
+   the specificity above the accent rule, so dropping onto the ACTIVE tab
+   shows the same unambiguous side indicator as any other tab. */
+.dv-tab.dv-drop-before {
+  box-shadow: inset 2px 0 0 0 var(--primary);
+}
+.dv-tab.dv-drop-after {
+  box-shadow: inset -2px 0 0 0 var(--primary);
+}
+.dv-tab[data-active='true'].dv-drop-before {
+  box-shadow: inset 2px 0 0 0 var(--primary);
+}
+.dv-tab[data-active='true'].dv-drop-after {
+  box-shadow: inset -2px 0 0 0 var(--primary);
+}
+
+/* ---- Drop-zone drag-over pulse ----
+   While a file hovers over the drop zone (or the whole window overlay) the
+   dashed border "breathes" — a gentle affordance that the drop will be
+   accepted. Pure box-shadow/dash-offset animation: no layout, no repaint
+   of children. Disabled for reduced-motion users. */
+@keyframes dv-drop-pulse {
+  0%,
+  100% {
+    border-color: color-mix(in oklch, var(--primary) 55%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 0%, transparent);
+  }
+  50% {
+    border-color: color-mix(in oklch, var(--primary) 90%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 12%, transparent);
+  }
+}
+.dv-drop-pulse {
+  animation: dv-drop-pulse 1.15s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv-drop-pulse {
+    animation: none;
+  }
+}
+
+/* ==================== Compare-two-files mode (Task 8) ==================== */
+/* Each pane mirrors the single-viewer section (rounded, bordered, card
+   background) but with a slightly recessed look so the two documents read
+   as "panels of one tool" rather than two separate viewers. The left pane
+   carries a subtle primary-tinted top hairline, the right a neutral one —
+   a quiet visual anchor matching the "left = active/shortcuts" rule. */
+.dv-compare-pane {
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background: color-mix(in oklch, var(--card) 40%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+.dv-compare-pane::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklch, var(--primary) 45%, transparent),
+    transparent
+  );
+  opacity: 0.7;
+}
+.dv-compare-pane + .dv-compare-pane::before {
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklch, var(--muted-foreground) 30%, transparent),
+    transparent
+  );
+  opacity: 0.5;
+}
+/* NOTE: printing in compare mode works per-pane (each shell's print button
+   clones its own document into body.dv-print-holder, which hides the rest
+   of the page — see the dv-print-mode rules above); no pane hiding needed. */
+
+/* Compare panes entrance: quick, staggered (left first, right 60ms later)
+   so the split feels "opening" rather than popping. */
+@keyframes dv-pane-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.dv-compare-pane {
+  animation: dv-pane-in 0.25s ease-out both;
+}
+.dv-compare-pane + .dv-compare-pane {
+  animation-delay: 0.06s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv-compare-pane {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Metadata aside entrance                                            */
+/* ------------------------------------------------------------------ */
+/* The right metadata panel mounts/unmounts instantly (that is what
+   makes the viewer stretch work). A short, subtle entrance keeps the
+   appearance from feeling abrupt without touching the layout: the
+   aside fades in while nudging from its nearest edge — below the
+   viewer on stacked (mobile) layouts, from the right on lg+ splits.
+   The viewer's own reflow stays instant by design. */
+@keyframes dv-aside-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.dv-aside-in {
+  animation: dv-aside-in 0.22s ease-out both;
+}
+@media (min-width: 1024px) {
+  @keyframes dv-aside-in {
+    from {
+      opacity: 0;
+      transform: translateX(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dv-aside-in {
+    animation: none;
+  }
+}
+
+/* ==================== Night mode for the remaining formats (Task 10-b) ==================== */
+/* Extends the «Night mode» block above (PDF canvases / pictures) to the other
+   seven viewers (DOCX, PPTX, XLSX, MD, TXT, JSON, RTF). The Moon/Sun toggle
+   in the toolbar writes the same global `nightMode` flag and the same
+   `dv-night` marker class on the viewer's INNER content host (never on the
+   .dv-scroll container itself, so scrollbars/chrome keep natural colours).
+   buildPrintClone strips `dv-night` from print/export clones → paper output
+   is always natural; screenshot PDF exports gate the class off declaratively
+   in the viewers (`nightMode && !exporting/capturing`) for the same reason —
+   html2canvas-pro DOES honour CSS `filter` when it re-renders the DOM.
+
+   Two surface categories:
+   1. ALWAYS-WHITE "paper" (invert in BOTH app themes, exactly like the PDF
+      canvases / pictures above): PPTX slides (.dv-slide) and DOCX pages —
+      .dv-docx-host2 hard-codes `background: white; color: #111`, so DOCX
+      pages are white paper regardless of the app theme.
+   2. THEME-ADAPTIVE surfaces (they already turn dark together with the app
+      theme: XLSX table cells, MD/TXT/JSON/RTF prose/pre). Inverting them
+      while the app itself is dark would make the pages LIGHT, so these
+      invert ONLY in the light theme (`html:not(.dark)`). Night ON in dark
+      theme ≈ no visual change — consistent with "night = the document is
+      dark". */
+
+/* --- Category 1: always-white paper --- */
+.dv-night .dv-slide {
+  filter: invert(1) hue-rotate(180deg);
+}
+/* Note: no `transition: filter` on .dv-slide on purpose — the slide already
+   runs a width transition (removed while capturing the PDF export); a filter
+   transition here would either override it or keep animating the width
+   mid-capture. The night flip on slides is instant instead. */
+/* Slide pictures: the whole-slide filter above already inverts them exactly
+   once; the global `.dv-night img` rule would invert them a SECOND time
+   (invert∘invert = identity ⇒ pictures would stay light on a dark slide), so
+   it is neutralized inside slides — uniform "inverted paper" like PDF. */
+.dv-night .dv-slide img {
+  filter: none;
+}
+/* DOCX pages (white paper in both themes — see the category note above).
+   Inline pictures get the same "invert once with the paper" treatment. */
+.dv-night .dv-docx-host2 .docx-wrapper > section.docx {
+  filter: invert(1) hue-rotate(180deg);
+}
+.dv-night .dv-docx-host2 img {
+  filter: none;
+}
+
+/* --- Category 2: theme-adaptive surfaces (light app theme only) --- */
+/* XLSX: the marker sits on the inner zoom wrapper, the <table> is its direct
+   child. The table is given an opaque `--card` background so the inverted
+   surface is self-contained — tbody cells are transparent and would
+   otherwise show the un-inverted card behind them (light text on light
+   paper). The table's own background is INSIDE the filter, so it inverts
+   with everything else. */
+html:not(.dark) .dv-night > table {
+  background: var(--card);
+  filter: invert(1) hue-rotate(180deg);
+}
+/* Markdown preview (.dv-prose) and RTF (same prose class) — the marker is
+   the content wrapper around the prose. An opaque `--background` sheet is
+   part of the rule for the same reason as the XLSX table: prose text is
+   otherwise transparent-backed and would become invisible. Pictures inside
+   prose stay natural (the global `.dv-night img` + this filter compose to
+   identity) — matching the dark-theme look where images are not inverted. */
+html:not(.dark) .dv-night .dv-prose {
+  filter: invert(1) hue-rotate(180deg);
+  background: var(--background);
+}
+/* Text/JSON source blocks and the Markdown "Источник" mode: direct-child
+   <pre> of the marked wrapper (DIRECT child on purpose — Markdown preview
+   code blocks are .dv-prose > pre.hljs and must invert exactly once, with
+   the prose, not twice). The raw line-numbered TXT container (.dv-lines)
+   inverts together with its gutter. */
+html:not(.dark) .dv-night > pre,
+html:not(.dark) .dv-night .dv-lines {
+  filter: invert(1) hue-rotate(180deg);
+  background: var(--background);
+}
+
+/* --- Filter transition (matches the existing canvases/img pattern) --- */
+@media (prefers-reduced-motion: no-preference) {
+  .dv-night .dv-docx-host2 .docx-wrapper > section.docx,
+  html:not(.dark) .dv-night > table,
+  html:not(.dark) .dv-night .dv-prose,
+  html:not(.dark) .dv-night > pre,
+  html:not(.dark) .dv-night .dv-lines {
+    transition: filter 160ms ease;
+  }
+}
+
+/* --- Counter-inverted search marks (colour-preserving highlights) ---
+   invert∘invert = identity and hue-rotate(180° + 180°) = 360° = identity,
+   so re-applying the same filter to the .dv-hl marks INSIDE an inverted
+   surface restores their EXACT original amber colours (otherwise amber
+   would flip to blue). Category 1 surfaces (always inverted) get an
+   always-on counter scoped to their surface; category 2 surfaces get the
+   light-theme-only counter below (in dark theme nothing inverts, so marks
+   must stay natural there). PDF's rect overlays use .dv-hl-rect* classes
+   and are not affected; cascading the same value twice is harmless (a CSS
+   property keeps ONE winning declaration — filters never stack per rule).
+   XLSX layering note (deliberate): the whole-cell tint/ring (.dv-hl-cell,
+   inset box-shadows) is part of the table surface and inverts WITH it —
+   acceptable because the entire grid inverts; only the per-occurrence
+   <mark> layer is counter-filtered back to amber. */
+html:not(.dark) .dv-night .dv-hl,
+html:not(.dark) .dv-night .dv-hl-active,
+.dv-night .dv-slide .dv-hl,
+.dv-night .dv-slide .dv-hl-active,
+.dv-night .dv-docx-host2 .dv-hl,
+.dv-night .dv-docx-host2 .dv-hl-active {
+  filter: invert(1) hue-rotate(180deg);
+}
+/* cache-bust 4 */

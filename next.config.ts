@@ -1,30 +1,33 @@
 import type { NextConfig } from "next";
 
 /**
- * Static export support for GitHub Pages.
+ * DocuViewer — build configuration.
  *
- * The dev server (no env) uses `output: 'standalone'` so the preview
- * environment keeps working. When `STATIC_EXPORT=1` is set (used by the
- * GitHub Actions deploy workflow), the build switches to a fully static
- * export with a configurable basePath/assetPrefix derived from the
- * repository name so it works under https://<user>.github.io/<repo>/.
+ * - `next dev` / `next build` without env vars — standard Next.js behaviour.
+ * - `STATIC_EXPORT=1` (used by `bun run build` / `build:static` and by the
+ *   GitHub Actions deploy workflow) — fully static export into `out/`,
+ *   suitable for GitHub Pages / any static hosting.
+ * - `NEXT_PUBLIC_BASE_PATH=/<repo-name>` — set it when the site is served
+ *   from a subpath, e.g. https://<user>.github.io/<repo-name>/.
+ *   The deploy workflow computes it automatically from the repo name.
  */
 const isStaticExport = process.env.STATIC_EXPORT === "1";
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 const nextConfig: NextConfig = {
-  output: isStaticExport ? "export" : "standalone",
-  // PDF.js and image rendering happen client-side; no optimization needed.
+  ...(isStaticExport ? { output: "export" as const } : {}),
+  // All document rendering (pdf.js, docx-preview, images) happens
+  // client-side; the Next.js image optimizer is not needed.
   images: { unoptimized: true },
   typescript: {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  // Avoid trailing-slash redirect issues on GitHub Pages subpaths.
+  trailingSlash: true,
   ...(isStaticExport && basePath
     ? { basePath, assetPrefix: basePath }
     : {}),
-  // Prevent trailing-slash redirect issues on GitHub Pages subpaths.
-  trailingSlash: true,
 };
 
 export default nextConfig;
