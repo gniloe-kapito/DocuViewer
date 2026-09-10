@@ -671,7 +671,7 @@ export function PptxViewer({ file }: ViewerProps) {
       {loading ? (
         <div className="dv-scroll h-full overflow-auto">
           <div className="flex h-full flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
-            <Presentation className="size-10 animate-pulse text-orange-500" />
+            <Presentation className="size-10 animate-pulse text-primary" />
             <p className="text-sm">Извлечение слайдов из презентации…</p>
           </div>
         </div>

@@ -89,7 +89,7 @@ export default function Home() {
   const [processing, setProcessing] = React.useState(false)
   const [dragOverlay, setDragOverlay] = React.useState(false)
 
-  /* ---- Closed-tabs restore stack (Ctrl+Shift+T) ----
+  /* ---- Closed-tabs restore stack ----
    * A LIFO stack of recently closed tabs. The full LoadedFile object is kept
    * (its `arrayBuffer` stays referenced, so the restore is loss-free); the
    * revoked object URL is re-created from the buffer on restore. Capped so a
@@ -119,10 +119,11 @@ export default function Home() {
     [],
   )
 
-  /** Restores the most recently closed tab (Ctrl+Shift+T / menu item / the
-   * «Восстановить» action on the close toast). Re-creates the object URL
-   * (the original was revoked at close time), re-inserts the file at its
-   * original position (clamped to the current tab count) and focuses it. */
+  /** Restores the most recently closed tab (tabs-menu «Восстановить» item;
+   * Ctrl/Cmd+Shift+T also works in browsers that deliver it to the page).
+   * Re-creates the object URL (the original was revoked at close time),
+   * re-inserts the file at its original position (clamped to the current
+   * tab count) and focuses it. */
   const restoreClosedTab = React.useCallback(() => {
     const stack = closedStackRef.current
     const entry = stack.pop()
@@ -401,9 +402,7 @@ export default function Home() {
         const neighbor = next[idx] ?? next[idx - 1] ?? null
         setActiveId(neighbor ? neighbor.id : null)
       }
-      toast.info(`Вкладка «${target.name}» закрыта`, {
-        description: 'Ctrl+Shift+T — восстановить',
-      })
+      toast.info(`Вкладка «${target.name}» закрыта`)
     },
     [files, activeId, pushClosed],
   )
@@ -414,13 +413,11 @@ export default function Home() {
     files.forEach(revokeLoadedFile)
     setFiles([])
     setActiveId(null)
-    toast.info('Все вкладки закрыты', {
-      description: 'Ctrl+Shift+T — восстановить последнюю',
-    })
+    toast.info('Все вкладки закрыты')
   }, [files, pushClosed])
 
   /** Logo / site-name click — "go home". Closes every open document (via
-   *  the same close-all path, so Ctrl+Shift+T can bring them back) and
+   *  the same close-all path, so the tabs menu can bring them back) and
    *  exits compare mode, returning to the landing screen. No-op when
    *  nothing is open — the click must never feel destructive on an empty
    *  state. */
@@ -444,9 +441,7 @@ export default function Home() {
     )
     closed.forEach(revokeLoadedFile)
     setFiles(files.filter((f) => f.id === keepId))
-    toast.info(`Закрыто вкладок: ${closed.length}`, {
-      description: 'Ctrl+Shift+T — восстановить последнюю',
-    })
+    toast.info(`Закрыто вкладок: ${closed.length}`)
   }, [files, activeId, pushClosed])
 
   /** Drag-to-reorder handler for the tabs strip (see document-tabs.tsx):
@@ -501,11 +496,12 @@ export default function Home() {
     return () => window.removeEventListener('keydown', onKey)
   }, [openFilePicker])
 
-  // Restore the last closed tab (Ctrl/Cmd+Shift+T) — the browser's own
-  // "reopen closed browser tab" is reserved by Chrome and never reaches the
-  // page there, but Firefox/Edge deliver it (and the menu item + the close
-  // toast hint work everywhere). No typing-guard: the combo never collides
-  // with text input.
+  // Restore the last closed tab (Ctrl/Cmd+Shift+T) — a quiet extra: the
+  // browser's own "reopen closed browser tab" is reserved by Chrome and
+  // never reaches the page there, but Firefox/Edge deliver it, and the
+  // tabs-menu item works everywhere. Deliberately NOT advertised in any
+  // toast/UI copy — the combo is browser-dependent. No typing-guard: the
+  // combo never collides with text input.
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (
@@ -638,8 +634,8 @@ export default function Home() {
       <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-5 py-3 flex items-center gap-2 sm:gap-3">
           {/* Logo + site name — click returns to the landing screen from any
-              state (closes all documents; they stay restorable via
-              Ctrl+Shift+T). */}
+              state (closes all documents; they stay restorable via the
+              tabs-menu «Восстановить» item). */}
           <button
             type="button"
             onClick={goHome}
@@ -665,11 +661,12 @@ export default function Home() {
             <HistoryPanel />
             <AboutDialog />
             <a
-              href="https://github.com"
+              href="https://github.com/gniloe-kapito/DocuViewer"
               target="_blank"
               rel="noreferrer noopener"
               className="hidden sm:inline-flex"
-              aria-label="GitHub"
+              aria-label="DocuViewer на GitHub (открывается в новой вкладке)"
+              title="DocuViewer на GitHub"
             >
               <Button variant="ghost" size="icon" className="h-9 w-9">
                 <Github className="h-4 w-4" />
@@ -686,9 +683,9 @@ export default function Home() {
           <div className="relative flex flex-col items-center justify-center gap-8 py-8 sm:py-14 lg:py-16">
             {/* Decorative gradient blobs (no layout impact) */}
             <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden" aria-hidden="true">
-              <div className="dv-blob dv-blob-emerald" />
-              <div className="dv-blob dv-blob-rose" />
-              <div className="dv-blob dv-blob-amber" />
+              <div className="dv-blob dv-blob-blue-deep" />
+              <div className="dv-blob dv-blob-blue-bright" />
+              <div className="dv-blob dv-blob-blue-azure" />
             </div>
 
             {/* Hero: one calm heading + one human sentence. No badge pills,
@@ -940,21 +937,33 @@ export default function Home() {
         )}
       </main>
 
-      {/* Footer — quiet and human: the privacy promise plus the wordmark.
-          Deliberately NO technical caveats (parsing speed, render limits):
-          that information belongs in the About dialog, not the first screen. */}
+      {/* Footer — ONE quiet centered line (the privacy promise) plus a
+          working link to the project repository. Deliberately nothing else:
+          no wordmark, no technical caveats — those live in the About dialog. */}
       <footer className="mt-auto border-t border-border bg-background/80">
-        <div className="mx-auto max-w-[1400px] px-3 sm:px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-            <span>
-              Все файлы обрабатываются локально. Ничего не отправляется на сервер.
-            </span>
-          </div>
-          <span className="inline-flex items-center gap-1.5 select-none">
-            <span className="dv-footer-dot" aria-hidden="true" />
-            DocuViewer
+        <div className="mx-auto max-w-[1400px] px-3 sm:px-5 py-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 text-center">
+            <ShieldCheck
+              className="h-3.5 w-3.5 shrink-0 text-emerald-500"
+              aria-hidden="true"
+            />
+            Все файлы обрабатываются локально. Ничего не отправляется на сервер.
           </span>
+          <span
+            aria-hidden="true"
+            className="hidden h-3 w-px bg-border sm:block"
+          />
+          <a
+            href="https://github.com/gniloe-kapito/DocuViewer"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-primary hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            aria-label="DocuViewer на GitHub (открывается в новой вкладке)"
+            title="DocuViewer на GitHub"
+          >
+            <Github className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>GitHub</span>
+          </a>
         </div>
       </footer>
     </div>
@@ -966,62 +975,29 @@ export default function Home() {
 /* ------------------------------------------------------------------ */
 
 interface FormatChip {
-  /** Short family label shown inside the chip. No descriptions — the
-   *  characteristic colour does the talking (red PDF, blue Word, green
-   *  Excel, orange PowerPoint…). */
+  /** Short family label shown inside the chip. No descriptions — the mono
+   *  label itself does the talking; all chips share the single Word-blue
+   *  brand accent (one calm row instead of a nine-colour carnival). */
   label: string
   /** `accept` filter for the OS file picker (comma-separated extensions). */
   accept: string
-  /** Family colour (text + tinted background + border), light & dark. */
-  chip: string
 }
 
+/** One shared accent for every format chip — theme-adaptive via the
+ *  semantic `primary` tokens (Word blue #2B579A in light, #41A5EE in dark). */
+const CHIP_ACCENT =
+  'bg-primary/10 text-primary border-primary/30 hover:border-primary/60 hover:bg-primary/15'
+
 const FORMAT_CHIPS: FormatChip[] = [
-  {
-    label: 'PDF',
-    accept: '.pdf',
-    chip: 'text-rose-600 dark:text-rose-300 bg-rose-500/10 border-rose-500/25 hover:border-rose-500/50',
-  },
-  {
-    label: 'DOC',
-    accept: '.docx',
-    chip: 'text-sky-700 dark:text-sky-300 bg-sky-500/10 border-sky-500/25 hover:border-sky-500/50',
-  },
-  {
-    label: 'XLS',
-    accept: '.xlsx,.xls,.csv',
-    chip: 'text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border-emerald-500/25 hover:border-emerald-500/50',
-  },
-  {
-    label: 'PPT',
-    accept: '.pptx,.ppt',
-    chip: 'text-orange-700 dark:text-orange-300 bg-orange-500/10 border-orange-500/25 hover:border-orange-500/50',
-  },
-  {
-    label: 'MD',
-    accept: '.md,.markdown,.mdx',
-    chip: 'text-violet-700 dark:text-violet-300 bg-violet-500/10 border-violet-500/25 hover:border-violet-500/50',
-  },
-  {
-    label: 'JSON',
-    accept: '.json,.jsonl,.geojson',
-    chip: 'text-amber-700 dark:text-amber-300 bg-amber-500/10 border-amber-500/25 hover:border-amber-500/50',
-  },
-  {
-    label: 'TXT',
-    accept: '.txt,.log,.text',
-    chip: 'text-zinc-600 dark:text-zinc-300 bg-zinc-500/10 border-zinc-500/25 hover:border-zinc-500/50',
-  },
-  {
-    label: 'IMG',
-    accept: '.png,.jpg,.jpeg,.gif,.svg,.webp,.bmp,.avif',
-    chip: 'text-teal-700 dark:text-teal-300 bg-teal-500/10 border-teal-500/25 hover:border-teal-500/50',
-  },
-  {
-    label: 'RTF',
-    accept: '.rtf',
-    chip: 'text-fuchsia-700 dark:text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/25 hover:border-fuchsia-500/50',
-  },
+  { label: 'PDF', accept: '.pdf' },
+  { label: 'DOC', accept: '.docx' },
+  { label: 'XLS', accept: '.xlsx,.xls,.csv' },
+  { label: 'PPT', accept: '.pptx,.ppt' },
+  { label: 'MD', accept: '.md,.markdown,.mdx' },
+  { label: 'JSON', accept: '.json,.jsonl,.geojson' },
+  { label: 'TXT', accept: '.txt,.log,.text' },
+  { label: 'IMG', accept: '.png,.jpg,.jpeg,.gif,.svg,.webp,.bmp,.avif' },
+  { label: 'RTF', accept: '.rtf' },
 ]
 
 function FormatRow({ onPick }: { onPick: (accept: string) => void }) {
@@ -1045,7 +1021,7 @@ function FormatRow({ onPick }: { onPick: (accept: string) => void }) {
             onClick={() => onPick(f.accept)}
             aria-label={`Выбрать файл — ${f.label}`}
             title={`Выбрать ${f.label}-файл (${f.accept})`}
-            className={cn('dv-format-chip font-mono', f.chip)}
+            className={cn('dv-format-chip font-mono', CHIP_ACCENT)}
           >
             {f.label}
           </button>

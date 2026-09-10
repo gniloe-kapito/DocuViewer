@@ -31,7 +31,7 @@ interface DocumentTabsProps {
   onReorder?: (dragId: string, targetId: string, after: boolean) => void
   /** Name of the most recently closed tab (null → nothing to restore). */
   restoreName?: string | null
-  /** Restores the most recently closed tab (menu item / Ctrl+Shift+T). */
+  /** Restores the most recently closed tab (tabs-menu item). */
   onRestore?: () => void
 }
 
@@ -270,7 +270,6 @@ export function DocumentTabs({
                 <DropdownMenuItem
                   onSelect={() => onRestore()}
                   disabled={!restoreName}
-                  aria-keyshortcuts="Control+Shift+T"
                 >
                   <Undo2 className="mr-2 h-3.5 w-3.5" />
                   {restoreName

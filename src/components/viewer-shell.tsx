@@ -333,58 +333,52 @@ interface FormatVisual {
 }
 
 const FORMAT_VISUALS: Partial<Record<FileCategory, FormatVisual>> = {
+  /* One shared Word-blue badge accent for every format (the mono EXT label
+   * carries the identity) — theme-adaptive via the semantic primary tokens. */
   pdf: {
     icon: FileText,
     ext: 'PDF',
-    badge: 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30',
+    badge: 'bg-primary/10 text-primary border-primary/30',
   },
   docx: {
     icon: FileType2,
     ext: 'DOCX',
-    badge:
-      'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
+    badge: 'bg-primary/10 text-primary border-primary/30',
   },
   xlsx: {
     icon: FileSpreadsheet,
     ext: 'XLSX',
-    badge:
-      'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
+    badge: 'bg-primary/10 text-primary border-primary/30',
   },
   pptx: {
     icon: Presentation,
     ext: 'PPTX',
-    badge:
-      'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30',
+    badge: 'bg-primary/10 text-primary border-primary/30',
   },
   image: {
     icon: ImageIcon,
     ext: 'IMG',
-    badge:
-      'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30',
+    badge: 'bg-primary/10 text-primary border-primary/30',
   },
   json: {
     icon: Braces,
     ext: 'JSON',
-    badge:
-      'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
+    badge: 'bg-primary/10 text-primary border-primary/30',
   },
   markdown: {
     icon: FileCode,
     ext: 'MD',
-    badge:
-      'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
+    badge: 'bg-primary/10 text-primary border-primary/30',
   },
   text: {
     icon: FileText,
     ext: 'TXT',
-    badge:
-      'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-500/30',
+    badge: 'bg-primary/10 text-primary border-primary/30',
   },
   rtf: {
     icon: FileType2,
     ext: 'RTF',
-    badge:
-      'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30',
+    badge: 'bg-primary/10 text-primary border-primary/30',
   },
 }
 

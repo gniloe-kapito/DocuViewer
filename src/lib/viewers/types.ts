@@ -61,15 +61,19 @@ export const CATEGORY_LABELS: Record<FileCategory, string> = {
   unknown: 'Неизвестный формат',
 }
 
+/** One shared Word-blue brand accent for every format badge (tabs strip,
+ *  history panel, metadata panel) — the semantic `primary` tokens make it
+ *  theme-adaptive: #2B579A on light, #41A5EE on dark. Format identity is
+ *  carried by the mono label (PDF / DOC / XLS…), not by the colour. */
 export const CATEGORY_COLORS: Record<FileCategory, string> = {
-  pdf: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30',
-  docx: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
-  xlsx: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
-  pptx: 'bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30',
-  text: 'bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-500/30',
-  markdown: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
-  json: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
-  image: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30',
-  rtf: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30',
+  pdf: 'bg-primary/10 text-primary border-primary/30',
+  docx: 'bg-primary/10 text-primary border-primary/30',
+  xlsx: 'bg-primary/10 text-primary border-primary/30',
+  pptx: 'bg-primary/10 text-primary border-primary/30',
+  text: 'bg-primary/10 text-primary border-primary/30',
+  markdown: 'bg-primary/10 text-primary border-primary/30',
+  json: 'bg-primary/10 text-primary border-primary/30',
+  image: 'bg-primary/10 text-primary border-primary/30',
+  rtf: 'bg-primary/10 text-primary border-primary/30',
   unknown: 'bg-muted text-muted-foreground border-border',
 }

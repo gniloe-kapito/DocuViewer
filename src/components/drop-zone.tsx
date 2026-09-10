@@ -71,7 +71,13 @@ export function DropZone({ onFiles, compact = false, className }: DropZoneProps)
         <span className="text-sm text-muted-foreground flex-1 truncate">
           Перетащите файлы сюда, чтобы открыть в новой вкладке
         </span>
-        <Button type="button" size="sm" variant="outline" onClick={handlePick}>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+          onClick={handlePick}
+        >
           <FolderOpen className="h-4 w-4 mr-1.5" />
           Добавить
         </Button>
@@ -125,7 +131,8 @@ export function DropZone({ onFiles, compact = false, className }: DropZoneProps)
 
       {/* Product mark: a stack of documents (NOT a stock "upload to cloud"
           glyph). The three sheets fan out and straighten while dragging —
-          the zone itself "reaches" for the file. */}
+          the zone itself "reaches" for the file. The front sheet's first
+          "text line" carries the Word-blue brand gradient. */}
       <svg
         className="dv-doc-stack mb-5 h-14 w-14 sm:h-16 sm:w-16"
         viewBox="0 0 64 64"
@@ -134,8 +141,8 @@ export function DropZone({ onFiles, compact = false, className }: DropZoneProps)
       >
         <defs>
           <linearGradient id="dv-drop-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="oklch(0.62 0.16 162)" />
-            <stop offset="1" stopColor="oklch(0.74 0.17 60)" />
+            <stop offset="0" stopColor="oklch(0.559 0.144 254.2)" />
+            <stop offset="1" stopColor="oklch(0.696 0.141 244.2)" />
           </linearGradient>
         </defs>
         <rect className="dv-sheet dv-sheet-back" x="10" y="6" width="30" height="42" rx="3.5" />

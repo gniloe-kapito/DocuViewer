@@ -5,8 +5,9 @@
  *   apple-touch-icon.png (180, full-bleed — iOS rounds it itself).
  *
  * The mark mirrors the header logo tile: a rounded square with the product
- * emerald→amber gradient and a white document glyph whose "text lines"
- * repeat the brand colours. Theme-independent (favicons don't switch).
+ * Word-blue gradient (#2B579A → #41A5EE) and a white document glyph whose
+ * "text lines" are light-blue/white tints. Theme-independent (favicons
+ * don't switch).
  *
  * Run:  cd <project root> && bun scripts/gen-favicon.ts
  * Requires dev-only deps: sharp (PNG rendering) + python3/Pillow (ICO pack).
@@ -25,16 +26,16 @@ function markSvg(opts: { fullBleed: boolean }): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#10b981"/>
-      <stop offset="1" stop-color="#f59e0b"/>
+      <stop offset="0" stop-color="#2B579A"/>
+      <stop offset="1" stop-color="#41A5EE"/>
     </linearGradient>
   </defs>
   ${bg}
   <path d="M180 126 H308 L356 174 V362 A24 24 0 0 1 332 386 H180 A24 24 0 0 1 156 362 V150 A24 24 0 0 1 180 126 Z" fill="#ffffff"/>
   <path d="M308 126 V150 A24 24 0 0 0 332 174 H356 Z" fill="#dbe4ee"/>
-  <rect x="192" y="224" width="128" height="22" rx="11" fill="#10b981"/>
-  <rect x="192" y="266" width="94" height="22" rx="11" fill="#f59e0b"/>
-  <rect x="192" y="308" width="112" height="22" rx="11" fill="#94a3b8" fill-opacity="0.55"/>
+  <rect x="192" y="224" width="128" height="22" rx="11" fill="#41A5EE"/>
+  <rect x="192" y="266" width="94" height="22" rx="11" fill="#7CB9F1"/>
+  <rect x="192" y="308" width="112" height="22" rx="11" fill="#ffffff" fill-opacity="0.6"/>
 </svg>`
 }
 

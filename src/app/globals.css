@@ -45,24 +45,28 @@
 
 :root {
   --radius: 0.625rem;
+  /* Brand accent = Microsoft Word blue (#2B579A). */
+  --brand-word: oklch(0.461 0.12 258.7);
+  --brand-blue: oklch(0.646 0.142 253.9);
+  --brand-bright: oklch(0.696 0.141 244.2);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.461 0.12 258.7);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.947 0.014 258.3);
+  --secondary-foreground: oklch(0.38 0.095 258.7);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: oklch(0.947 0.014 258.3);
+  --accent-foreground: oklch(0.38 0.095 258.7);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.646 0.142 253.9);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -70,12 +74,12 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.461 0.12 258.7);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-accent: oklch(0.947 0.014 258.3);
+  --sidebar-accent-foreground: oklch(0.38 0.095 258.7);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: oklch(0.646 0.142 253.9);
 }
 
 .dark {
@@ -85,18 +89,21 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  /* Dark theme keeps the Word-blue hue, brightened (#41A5EE) so text,
+     icons and active borders stay readable on the dark background; button
+     labels flip to a very dark navy (5.9:1 contrast on the bright blue). */
+  --primary: oklch(0.696 0.141 244.2);
+  --primary-foreground: oklch(0.254 0.063 258.4);
+  --secondary: oklch(0.283 0.04 257.8);
+  --secondary-foreground: oklch(0.947 0.014 258.3);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.283 0.04 257.8);
+  --accent-foreground: oklch(0.947 0.014 258.3);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.696 0.141 244.2);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -104,12 +111,12 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.696 0.141 244.2);
+  --sidebar-primary-foreground: oklch(0.254 0.063 258.4);
+  --sidebar-accent: oklch(0.283 0.04 257.8);
+  --sidebar-accent-foreground: oklch(0.947 0.014 258.3);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: oklch(0.696 0.141 244.2);
 }
 
 @layer base {
@@ -162,8 +169,8 @@
 .dv-prose h4 { font-size: 1.1em; font-weight: 600; margin: 0.9em 0 0.45em; }
 .dv-prose h5, .dv-prose h6 { font-weight: 600; margin: 0.8em 0 0.4em; }
 .dv-prose p { margin: 0.6em 0; }
-.dv-prose a { color: oklch(0.55 0.2 250); text-decoration: underline; text-underline-offset: 2px; }
-.dark .dv-prose a { color: oklch(0.75 0.18 250); }
+.dv-prose a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+.dark .dv-prose a { color: oklch(0.696 0.141 244.2); }
 .dv-prose strong { font-weight: 700; }
 .dv-prose em { font-style: italic; }
 .dv-prose ul, .dv-prose ol { margin: 0.6em 0; padding-left: 1.6em; }
@@ -592,13 +599,13 @@
 /*  Landing page decorations                                           */
 /* ------------------------------------------------------------------ */
 
-/* Gradient text accent for the hero heading */
+/* Gradient text accent for the hero heading — Word-blue ramp
+   (#2B579A → #4A90E2 in light; #41A5EE → #7CB9F1 in dark). */
 .dv-gradient-text {
   background: linear-gradient(
     100deg,
-    oklch(0.55 0.16 160),
-    oklch(0.62 0.18 70),
-    oklch(0.58 0.19 20)
+    oklch(0.461 0.12 258.7),
+    oklch(0.646 0.142 253.9)
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -607,16 +614,16 @@
 .dark .dv-gradient-text {
   background: linear-gradient(
     100deg,
-    oklch(0.78 0.15 160),
-    oklch(0.84 0.14 80),
-    oklch(0.75 0.16 30)
+    oklch(0.696 0.141 244.2),
+    oklch(0.766 0.103 247.2)
   );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
-/* Soft blurred colour blobs behind the hero (no layout impact) */
+/* Soft blurred colour blobs behind the hero (no layout impact) — a quiet
+   Word-blue family (deep → bright → azure) instead of a colour circus. */
 .dv-blob {
   position: absolute;
   border-radius: 9999px;
@@ -627,28 +634,28 @@
 .dark .dv-blob {
   opacity: 0.1;
 }
-.dv-blob-emerald {
+.dv-blob-blue-deep {
   width: 420px;
   height: 420px;
   top: -160px;
   left: -120px;
-  background: radial-gradient(circle, oklch(0.7 0.17 162) 0%, transparent 70%);
+  background: radial-gradient(circle, oklch(0.559 0.144 254.2) 0%, transparent 70%);
   animation: dv-blob-float 18s ease-in-out infinite alternate;
 }
-.dv-blob-rose {
+.dv-blob-blue-bright {
   width: 380px;
   height: 380px;
   bottom: -140px;
   right: -100px;
-  background: radial-gradient(circle, oklch(0.7 0.19 15) 0%, transparent 70%);
+  background: radial-gradient(circle, oklch(0.696 0.141 244.2) 0%, transparent 70%);
   animation: dv-blob-float 22s ease-in-out infinite alternate-reverse;
 }
-.dv-blob-amber {
+.dv-blob-blue-azure {
   width: 300px;
   height: 300px;
   top: 30%;
   right: 22%;
-  background: radial-gradient(circle, oklch(0.78 0.16 75) 0%, transparent 70%);
+  background: radial-gradient(circle, oklch(0.766 0.103 247.2) 0%, transparent 70%);
   animation: dv-blob-float 26s ease-in-out infinite alternate;
 }
 
@@ -1034,7 +1041,7 @@
 }
 
 /* ---- Landing drop zone (brand identity) ----
-   Product accent = the emerald→amber gradient already used by the hero
+   Product accent = the Word-blue ramp (#2B579A → #41A5EE) used by the hero
    heading. The zone ditches the template dashed border: a calm hairline,
    an inner top highlight, and a radial accent halo that wakes up on hover
    and fully glows while a file hovers over the zone. Pure
@@ -1046,7 +1053,7 @@
   isolation: isolate;
 }
 .dv-dropzone:hover {
-  border-color: color-mix(in oklch, oklch(0.62 0.16 162) 45%, var(--border));
+  border-color: color-mix(in oklch, oklch(0.646 0.142 253.9) 45%, var(--border));
   background: color-mix(in oklch, var(--card) 60%, transparent);
 }
 .dv-drop-halo {
@@ -1056,8 +1063,8 @@
   border-radius: inherit;
   background: radial-gradient(
     62% 58% at 50% 44%,
-    oklch(0.72 0.16 162 / 0.16),
-    oklch(0.8 0.16 60 / 0.1) 55%,
+    oklch(0.696 0.141 244.2 / 0.16),
+    oklch(0.766 0.103 247.2 / 0.1) 55%,
     transparent 78%
   );
   opacity: 0;
@@ -1068,11 +1075,11 @@
   opacity: 0.75;
 }
 .dv-dropzone[data-drag='true'] {
-  border-color: oklch(0.7 0.16 162 / 0.75);
+  border-color: oklch(0.646 0.142 253.9 / 0.75);
   background: color-mix(in oklch, var(--card) 80%, transparent);
   box-shadow:
-    0 0 0 1px oklch(0.74 0.17 60 / 0.35),
-    0 14px 48px -12px oklch(0.62 0.16 60 / 0.35);
+    0 0 0 1px oklch(0.696 0.141 244.2 / 0.35),
+    0 14px 48px -12px oklch(0.559 0.144 254.2 / 0.35);
   animation: dv-drop-pulse 1.2s ease-in-out infinite;
 }
 .dv-dropzone[data-drag='true'] .dv-drop-halo {
@@ -1086,13 +1093,13 @@
   0%,
   100% {
     box-shadow:
-      0 0 0 1px oklch(0.74 0.17 60 / 0.3),
-      0 14px 48px -12px oklch(0.62 0.16 60 / 0.3);
+      0 0 0 1px oklch(0.696 0.141 244.2 / 0.3),
+      0 14px 48px -12px oklch(0.559 0.144 254.2 / 0.3);
   }
   50% {
     box-shadow:
-      0 0 0 5px oklch(0.74 0.17 60 / 0.14),
-      0 14px 48px -12px oklch(0.62 0.16 60 / 0.42);
+      0 0 0 5px oklch(0.696 0.141 244.2 / 0.14),
+      0 14px 48px -12px oklch(0.559 0.144 254.2 / 0.42);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1172,16 +1179,19 @@
   }
 }
 
-/* ---- Landing CTA button (brand gradient) ---- */
+/* ---- Landing CTA button (brand gradient) ----
+   Word-blue gradient (#2B579A → #2E75C6) with WHITE label — ≥4.7:1
+   contrast at the lightest gradient stop, per the palette spec. The same
+   gradient works on both themes: on dark it simply glows brighter. */
 .dv-cta {
-  background: linear-gradient(100deg, oklch(0.62 0.16 162), oklch(0.72 0.17 60));
+  background: linear-gradient(100deg, oklch(0.461 0.12 258.7), oklch(0.559 0.144 254.2));
   color: oklch(0.99 0 0);
   border: none;
-  box-shadow: 0 6px 20px -6px oklch(0.62 0.16 60 / 0.5);
+  box-shadow: 0 6px 20px -6px oklch(0.461 0.12 258.7 / 0.5);
 }
 .dv-cta:hover {
-  background: linear-gradient(100deg, oklch(0.66 0.16 162), oklch(0.76 0.17 60));
-  box-shadow: 0 8px 28px -6px oklch(0.62 0.16 60 / 0.6);
+  background: linear-gradient(100deg, oklch(0.506 0.134 258.9), oklch(0.552 0.143 257.7));
+  box-shadow: 0 8px 28px -6px oklch(0.461 0.12 258.7 / 0.6);
   transform: translateY(-1px);
 }
 .dv-cta:active {
@@ -1194,16 +1204,8 @@
 
 /* ---- Header logo tile (matches the favicon) ---- */
 .dv-logo-tile {
-  background: linear-gradient(135deg, oklch(0.62 0.16 162), oklch(0.72 0.17 60));
+  background: linear-gradient(135deg, oklch(0.461 0.12 258.7), oklch(0.559 0.144 254.2));
   color: oklch(0.99 0 0);
-}
-
-/* ---- Footer wordmark dot: a tiny brand gradient bead ---- */
-.dv-footer-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-  background: linear-gradient(135deg, oklch(0.62 0.16 162), oklch(0.72 0.17 60));
 }
 
 /* ==================== Compare-two-files mode (Task 8) ==================== */
@@ -1425,3 +1427,21 @@ html:not(.dark) .dv-night .dv-hl-active,
 /* cache-bust 4 */
 
 /* cache-bust 5: landing redesign round (Turbopack stale-CSS workaround) */
+
+/* ==================== Word-blue brand round ====================
+   Success toasts carry the brand accent instead of sonner's default green:
+   a blue-tinted surface + a blue check icon (green stays ONLY as a status
+   tint where it is functional, never as the brand accent). The vars are
+   redefined ON THE TOAST element itself — a custom property defined on the
+   element always beats the inherited one, so sonner's own
+   [data-sonner-theme] var rules on the toaster root cannot win; the
+   richColors rules consume the vars on this same element. */
+[data-sonner-toast][data-type='success'] {
+  --success-bg: color-mix(in oklch, var(--primary) 10%, var(--popover));
+  --success-border: color-mix(in oklch, var(--primary) 38%, var(--border));
+  --success-text: var(--popover-foreground);
+}
+[data-sonner-toast][data-type='success'] [data-icon] {
+  color: var(--primary);
+}
+/* cache-bust 7: success-toast vars moved onto toast element */
