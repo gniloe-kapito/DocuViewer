@@ -1,0 +1,51 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+coverage/
+
+# next.js — build artifacts (created automatically by `next build`)
+.next/
+out/
+build/
+dist/
+
+# production
+*.tsbuildinfo
+next-env.d.ts
+
+# env files — never commit local secrets
+.env
+.env.*
+!.env.example
+
+# database (SQLite, only if you enable Prisma later)
+db/*.db
+db/*.db-journal
+*.sqlite
+*.sqlite-journal
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# misc
+.DS_Store
+*.pem
+.vercel
+.turbo
+
+# editors
+.idea/
+.vscode/
+*.swp
