@@ -4,6 +4,7 @@ import * as React from 'react'
 import { toast } from 'sonner'
 import {
   Columns2,
+  FileQuestion,
   FileText,
   ShieldCheck,
   Github,
@@ -43,10 +44,25 @@ import {
   urlToLoadedFile,
   revokeLoadedFile,
 } from '@/lib/file-utils'
-import { useHistoryStore } from '@/lib/history'
+import { useHistoryStore, type ShareRecord } from '@/lib/history'
 import { setupViewerUiPrefs, useViewerUiStore } from '@/lib/viewer-ui-store'
+import { ShareFileProvider } from '@/lib/share/share-context'
+import {
+  parseSharedLink,
+  clearSharedUrl,
+} from '@/lib/share/link'
+import { downloadEncryptedShare } from '@/lib/share/kappa'
+import { decryptSharedPacket } from '@/lib/share/crypto'
 import type { LoadedFile } from '@/lib/viewers/types'
 import { cn } from '@/lib/utils'
+
+/** The share dialog (QR + crypto code) is code-split: it loads on first
+ *  use, keeping the landing bundle lean. */
+const ShareDialog = React.lazy(() =>
+  import('@/components/share/share-dialog').then((m) => ({
+    default: m.ShareDialog,
+  })),
+)
 
 /* ------------------------------------------------------------------ */
 /*  Compare mode: scroll-sync helper (module scope, pure DOM)          */
@@ -88,6 +104,58 @@ export default function Home() {
   const [syncScroll, setSyncScroll] = React.useState(false)
   const [processing, setProcessing] = React.useState(false)
   const [dragOverlay, setDragOverlay] = React.useState(false)
+
+  /* ---- "Поделиться": dialog state ----
+   * The page owns the ShareDialog; the viewer toolbars request it through
+   * the ShareFile context (each pane passes its own file). `shareTarget`
+   * is exactly that file; the dialog encrypts its bytes and, on success,
+   * reports the publication record back → it lands in the local history
+   * (for «Скопировать ссылку снова» / «Отозвать доступ»). */
+  const [shareOpen, setShareOpen] = React.useState(false)
+  const [shareTarget, setShareTarget] = React.useState<LoadedFile | null>(null)
+
+  const openShare = React.useCallback((file: LoadedFile) => {
+    setShareTarget(file)
+    setShareOpen(true)
+  }, [])
+
+  const historyMarkShared = useHistoryStore((s) => s.markShared)
+  const handleShared = React.useCallback(
+    (file: LoadedFile, share: ShareRecord) => {
+      historyMarkShared(
+        {
+          name: file.name,
+          size: file.size,
+          category: file.category,
+          extension: file.extension,
+          type: file.type,
+        },
+        {
+          kappaId: share.kappaId,
+          deleteKey: share.deleteKey,
+          link: share.link,
+        },
+      )
+    },
+    [historyMarkShared],
+  )
+
+  /* ---- Receiving a shared link (?shared={id}#k={key}&iv={iv}) ----
+   * The secret key lives in the hash fragment — it never leaves the
+   * browser; the encrypted blob is fetched from kappa.lol, decrypted
+   * locally, unpacked into a File and fed into the SAME pipeline as a
+   * local upload. Any failure (incomplete link, deleted file, wrong key)
+   * → the friendly full-screen error. (The effect itself sits right after
+   * `ingestFiles` — it needs the callback in its deps.) */
+  const [sharedReceive, setSharedReceive] = React.useState<
+    'idle' | 'loading' | 'error'
+  >('idle')
+  const sharedRanRef = React.useRef(false)
+
+  const sharedGoHome = React.useCallback(() => {
+    clearSharedUrl()
+    setSharedReceive('idle')
+  }, [])
 
   /* ---- Closed-tabs restore stack ----
    * A LIFO stack of recently closed tabs. The full LoadedFile object is kept
@@ -387,6 +455,34 @@ export default function Home() {
     [historyAdd],
   )
 
+  // Shared-link receive flow (declared after `ingestFiles` — see the state
+  // block above). Runs once on mount: fetch → decrypt → unpack → the normal
+  // open pipeline. The ref guard keeps it single-shot even if the effect
+  // re-runs (dep identity changes / dev double-invocation).
+  React.useEffect(() => {
+    if (sharedRanRef.current) return
+    const parts = parseSharedLink()
+    if (!parts) return
+    sharedRanRef.current = true
+    if (!parts.id || !parts.key || !parts.iv) {
+      setSharedReceive('error')
+      return
+    }
+    const { id, key, iv } = parts
+    setSharedReceive('loading')
+    void (async () => {
+      try {
+        const data = await downloadEncryptedShare(id)
+        const file = await decryptSharedPacket(data, key, iv)
+        await ingestFiles([file])
+        clearSharedUrl()
+        setSharedReceive('idle')
+      } catch {
+        setSharedReceive('error')
+      }
+    })()
+  }, [ingestFiles])
+
   const closeFile = React.useCallback(
     (id: string) => {
       // Closure-based (not updater-based): the updater must stay pure — the
@@ -628,6 +724,17 @@ export default function Home() {
 
   const hasFiles = files.length > 0
 
+  /* While a shared link is being received the whole app is replaced by a
+   * dedicated screen — the receiver sees either the loading state or the
+   * friendly error (never a half-loaded landing). All hooks are already
+   * above; this early return is render-only. */
+  if (sharedReceive === 'loading') {
+    return <SharedLoadingScreen />
+  }
+  if (sharedReceive === 'error') {
+    return <SharedErrorScreen onHome={sharedGoHome} />
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
@@ -761,6 +868,9 @@ export default function Home() {
                 right = chosen file); the metadata panel is hidden to give
                 both panes maximum width; global shortcuts belong to the
                 LEFT pane (first shell in DOM order — see viewer-shell.tsx). */}
+            {/* Panes: side-by-side from lg, stacked on mobile. Each pane's
+                "Поделиться" toolbar button shares exactly the document that
+                pane displays (context-provided callback). */}
             {activeFile && compareMode && rightFile ? (
               <div className="flex flex-col gap-2" data-compare-active="true">
                 {/* Compare toolbar: left select · swap · right select · exit */}
@@ -866,14 +976,18 @@ export default function Home() {
                     className="dv-compare-pane min-w-0 flex flex-col h-[60dvh] min-h-[380px] lg:h-[calc(100dvh-375px)] overflow-hidden"
                     aria-label="Документ для сравнения (левая панель)"
                   >
-                    <ViewerFrame file={activeFile} />
+                    <ShareFileProvider onShare={openShare}>
+                      <ViewerFrame file={activeFile} />
+                    </ShareFileProvider>
                   </section>
                   <section
                     ref={rightPaneRef}
                     className="dv-compare-pane min-w-0 flex flex-col h-[60dvh] min-h-[380px] lg:h-[calc(100dvh-375px)] overflow-hidden"
                     aria-label="Документ для сравнения (правая панель)"
                   >
-                    <ViewerFrame file={rightFile} />
+                    <ShareFileProvider onShare={openShare}>
+                      <ViewerFrame file={rightFile} />
+                    </ShareFileProvider>
                   </section>
                 </div>
                 <p className="hidden text-center text-[11px] text-muted-foreground/80 lg:block">
@@ -890,7 +1004,9 @@ export default function Home() {
                   className="min-w-0 flex-1 h-[65dvh] min-h-[420px] lg:h-[calc(100dvh-295px)] rounded-xl border border-border bg-card/40 overflow-hidden"
                   aria-label="Просмотр документа"
                 >
-                  <ViewerFrame file={activeFile} />
+                  <ShareFileProvider onShare={openShare}>
+                    <ViewerFrame file={activeFile} />
+                  </ShareFileProvider>
                 </section>
                 {metaPanelOpen && (
                   <aside
@@ -951,6 +1067,63 @@ export default function Home() {
           </span>
         </div>
       </footer>
+
+      {/* "Поделиться" dialog (code-split, loads on first open) */}
+      <React.Suspense fallback={null}>
+        <ShareDialog
+          file={shareTarget}
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          onShared={handleShared}
+        />
+      </React.Suspense>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shared-link receive screens                                        */
+/* ------------------------------------------------------------------ */
+
+/** Full-screen "decrypting…" state while a shared link is being opened. */
+function SharedLoadingScreen() {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background p-8 text-center">
+      <span className="relative flex size-16 items-center justify-center rounded-full border border-primary/25 bg-primary/10">
+        <Loader2 className="size-8 animate-spin text-primary" aria-hidden />
+      </span>
+      <div className="max-w-md space-y-1.5">
+        <h1 className="text-lg font-semibold tracking-tight">
+          Открываем документ по ссылке…
+        </h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Загружаем зашифрованную копию и расшифровываем её прямо в вашем
+          браузере — ключ не покидает эту страницу.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/** Friendly full-screen error for a broken/revoked/expired share link. */
+function SharedErrorScreen({ onHome }: { onHome: () => void }) {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background p-8 text-center">
+      <span className="flex size-16 items-center justify-center rounded-full border border-border bg-muted">
+        <FileQuestion className="size-8 text-muted-foreground" aria-hidden />
+      </span>
+      <div className="max-w-md space-y-2">
+        <h1 className="text-xl font-semibold tracking-tight">
+          Не удалось открыть документ по ссылке
+        </h1>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Возможно, ссылка неполная, файл был удалён автором, или срок его
+          хранения истёк.
+        </p>
+      </div>
+      <Button type="button" size="lg" onClick={onHome}>
+        На главную
+      </Button>
     </div>
   )
 }

@@ -22,6 +22,7 @@ import {
   RotateCcw,
   RotateCw,
   Search,
+  Share2,
   StretchHorizontal,
   X,
   ZoomIn,
@@ -39,6 +40,7 @@ import {
 import { FullscreenButton } from '@/components/fullscreen-button'
 import { useFullscreen } from '@/lib/use-fullscreen'
 import { useViewerUiStore } from '@/lib/viewer-ui-store'
+import { useShareFile } from '@/lib/share/share-context'
 import { exportElementToPdf } from '@/lib/export-pdf'
 import { cn } from '@/lib/utils'
 import type { FileCategory, LoadedFile } from '@/lib/viewers/types'
@@ -766,6 +768,12 @@ export function ViewerShell({
   const toggleThumbs = useViewerUiStore((s) => s.toggleThumbs)
   const toggleNightMode = useViewerUiStore((s) => s.toggleNightMode)
 
+  // "Поделиться" — provided (and owned) by the page via context: the page
+  // knows the active file and hosts the ShareDialog. Each shell passes its
+  // OWN file, so compare-mode panes share exactly what they display. No
+  // provider (e.g. any other host) → no button.
+  const shareFile = useShareFile()
+
   const { isFullscreen, toggle: toggleFullscreen, supported } = useFullscreen(
     fullscreenRef ?? rootRef,
   )
@@ -1114,9 +1122,23 @@ export function ViewerShell({
           </div>
         )}
 
-        {/* --- right: shortcuts, download, print, fullscreen --- */}
+        {/* --- right: share, shortcuts, download, print, fullscreen --- */}
         <div className="ml-auto flex items-center gap-1.5">
           {toolbarEnd}
+          {shareFile && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={() => shareFile(file)}
+              title="Поделиться ссылкой на документ (шифрование в браузере)"
+              aria-label="Поделиться документом"
+            >
+              <Share2 className="size-4" />
+              <span className="hidden sm:inline">Поделиться</span>
+            </Button>
+          )}
           <Popover>
             <PopoverTrigger asChild>
               <Button
