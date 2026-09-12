@@ -43,7 +43,11 @@ import { useViewerUiStore } from '@/lib/viewer-ui-store'
 import { useShareFile } from '@/lib/share/share-context'
 import { exportElementToPdf } from '@/lib/export-pdf'
 import { cn } from '@/lib/utils'
-import type { FileCategory, LoadedFile } from '@/lib/viewers/types'
+import {
+  CATEGORY_COLORS,
+  type FileCategory,
+  type LoadedFile,
+} from '@/lib/viewers/types'
 
 /* ------------------------------------------------------------------ */
 /*  Public types                                                       */
@@ -335,52 +339,54 @@ interface FormatVisual {
 }
 
 const FORMAT_VISUALS: Partial<Record<FileCategory, FormatVisual>> = {
-  /* One shared Word-blue badge accent for every format (the mono EXT label
-   * carries the identity) — theme-adaptive via the semantic primary tokens. */
+  /* Per-format accent badge (same palette as the landing chips and the
+   * tabs/history/metadata badges — see CATEGORY_COLORS): PDF rose / DOC sky /
+   * XLS emerald / PPT orange / MD violet / JSON amber / TXT zinc / IMG teal /
+   * RTF fuchsia, each tuned for light and dark themes. */
   pdf: {
     icon: FileText,
     ext: 'PDF',
-    badge: 'bg-primary/10 text-primary border-primary/30',
+    badge: CATEGORY_COLORS.pdf,
   },
   docx: {
     icon: FileType2,
     ext: 'DOCX',
-    badge: 'bg-primary/10 text-primary border-primary/30',
+    badge: CATEGORY_COLORS.docx,
   },
   xlsx: {
     icon: FileSpreadsheet,
     ext: 'XLSX',
-    badge: 'bg-primary/10 text-primary border-primary/30',
+    badge: CATEGORY_COLORS.xlsx,
   },
   pptx: {
     icon: Presentation,
     ext: 'PPTX',
-    badge: 'bg-primary/10 text-primary border-primary/30',
+    badge: CATEGORY_COLORS.pptx,
   },
   image: {
     icon: ImageIcon,
     ext: 'IMG',
-    badge: 'bg-primary/10 text-primary border-primary/30',
+    badge: CATEGORY_COLORS.image,
   },
   json: {
     icon: Braces,
     ext: 'JSON',
-    badge: 'bg-primary/10 text-primary border-primary/30',
+    badge: CATEGORY_COLORS.json,
   },
   markdown: {
     icon: FileCode,
     ext: 'MD',
-    badge: 'bg-primary/10 text-primary border-primary/30',
+    badge: CATEGORY_COLORS.markdown,
   },
   text: {
     icon: FileText,
     ext: 'TXT',
-    badge: 'bg-primary/10 text-primary border-primary/30',
+    badge: CATEGORY_COLORS.text,
   },
   rtf: {
     icon: FileType2,
     ext: 'RTF',
-    badge: 'bg-primary/10 text-primary border-primary/30',
+    badge: CATEGORY_COLORS.rtf,
   },
 }
 
@@ -1104,13 +1110,16 @@ export function ViewerShell({
           </Button>
         </div>
 
-        {/* --- centre: zoom / rotate / page nav / extras ---
+        {/* --- centre: viewing tools (zoom / rotate / page nav / extras /
+            per-viewer tools from `toolbarEnd` / shortcuts help) ---
             Mobile: the group takes a full-width row of its own (basis-full)
             so every control stays reachable. From md up it joins the main
             row: min-w-max keeps it from shrinking below its content, so
             when space runs out the right group wraps to a second row
-            instead of the controls overlapping each other. */}
-        {(zoom || rotate || pageNav || centerExtra) && (
+            instead of the controls overlapping each other.
+            Everything that *manipulates the view* lives here — the right
+            group below is reserved exclusively for document actions. */}
+        {(zoom || rotate || pageNav || centerExtra || toolbarEnd) && (
           <div className="order-3 flex basis-full flex-wrap items-center justify-center gap-1.5 py-0.5 sm:gap-2 md:order-none md:basis-0 md:grow md:min-w-max">
             {zoom && <ZoomControl zoom={zoom} busy={busy} />}
             {zoom && (rotate || pageNav) && (
@@ -1119,12 +1128,49 @@ export function ViewerShell({
             {rotate && <RotateControl rotate={rotate} busy={busy} />}
             {pageNav && <PageNavControl nav={pageNav} busy={busy} />}
             {centerExtra}
+            {(zoom || rotate || pageNav || centerExtra) && toolbarEnd && (
+              <span className="hidden h-6 w-px bg-border sm:block" aria-hidden />
+            )}
+            {toolbarEnd}
+            {/* Shortcuts help — closes the viewing-tools group (it documents
+                exactly these controls); desktop only. */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="hidden size-8 text-muted-foreground sm:inline-flex"
+                  aria-label="Горячие клавиши"
+                  title="Горячие клавиши"
+                >
+                  <Keyboard className="size-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-64 p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Горячие клавиши
+                </p>
+                <div className="space-y-2.5">
+                  {shortcutGroups.map((g) => (
+                    <div key={g.title}>
+                      <p className="mb-1 text-[11px] font-medium text-foreground/70">
+                        {g.title}
+                      </p>
+                      <ShortcutsList rows={g.rows} />
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
 
-        {/* --- right: share, shortcuts, download, print, fullscreen --- */}
+        {/* --- right: document actions ONLY — one tight contiguous group,
+            in fixed order: Поделиться → Скачать как PDF → Печать →
+            На весь экран. No helper/tool icons in between: they live in the
+            viewing-tools group above. */}
         <div className="ml-auto flex items-center gap-1.5">
-          {toolbarEnd}
           {shareFile && (
             <Button
               type="button"
@@ -1139,35 +1185,6 @@ export function ViewerShell({
               <span className="hidden sm:inline">Поделиться</span>
             </Button>
           )}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="hidden size-8 text-muted-foreground sm:inline-flex"
-                aria-label="Горячие клавиши"
-                title="Горячие клавиши"
-              >
-                <Keyboard className="size-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-64 p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Горячие клавиши
-              </p>
-              <div className="space-y-2.5">
-                {shortcutGroups.map((g) => (
-                  <div key={g.title}>
-                    <p className="mb-1 text-[11px] font-medium text-foreground/70">
-                      {g.title}
-                    </p>
-                    <ShortcutsList rows={g.rows} />
-                  </div>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
           {download && (
             <Button
               type="button"

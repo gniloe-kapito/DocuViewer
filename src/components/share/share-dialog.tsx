@@ -227,14 +227,42 @@ export function ShareDialog({
         </div>
 
         <div className="space-y-3.5 rounded-lg border border-amber-200/80 bg-amber-50/70 p-3.5 text-[13px] leading-relaxed text-amber-950/90 dark:border-amber-600/40 dark:bg-amber-950/30 dark:text-amber-100/90">
-          {WARNING_PARAGRAPHS.map((p, i) => (
-            <p key={i} className="flex gap-2.5">
-              <span className="mt-0.5 text-amber-600/80 dark:text-amber-400/80">
-                {p.icon}
-              </span>
-              <span>{p.text}</span>
+          {/* Headline warning — the single most prominent element after the
+              title: big, bold, centred, in its own strongly highlighted area
+              inside the amber panel. Even without reading the fine print
+              below, the choice is unambiguous: "Continue → the file leaves
+              this browser for a third-party service." */}
+          <div className="rounded-md border border-amber-400/90 bg-amber-100 px-3.5 py-3.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.4)] dark:border-amber-500/60 dark:bg-amber-400/15 dark:shadow-none">
+            <div className="flex items-center justify-center gap-2.5">
+              <AlertTriangle
+                className="size-6 shrink-0 text-amber-600 dark:text-amber-400"
+                aria-hidden
+              />
+              <p className="text-base font-extrabold uppercase leading-snug tracking-wide text-amber-950 dark:text-amber-50 sm:text-lg">
+                Файл будет отправлен
+                <br className="sm:hidden" />
+                на сторонний сервис
+              </p>
+            </div>
+            <p className="mx-auto mt-2 max-w-md text-xs font-medium leading-relaxed text-amber-800/90 dark:text-amber-200/90 sm:text-[13px]">
+              Перед публикацией убедитесь, что в документе нет конфиденциальной
+              информации.
             </p>
-          ))}
+          </div>
+
+          {/* Detailed explanation — deliberately lowered under the headline
+              and slightly quieter, so it reads as the fine print behind the
+              main warning. All original facts kept verbatim. */}
+          <div className="space-y-3.5 border-t border-amber-200/70 pt-3.5 dark:border-amber-700/40">
+            {WARNING_PARAGRAPHS.map((p, i) => (
+              <p key={i} className="flex gap-2.5">
+                <span className="mt-0.5 text-amber-600/80 dark:text-amber-400/80">
+                  {p.icon}
+                </span>
+                <span>{p.text}</span>
+              </p>
+            ))}
+          </div>
         </div>
 
         <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-amber-300/70 bg-amber-100/60 p-3 transition-colors hover:border-amber-400/80 dark:border-amber-600/50 dark:bg-amber-900/30 dark:hover:border-amber-500/60">
@@ -428,13 +456,18 @@ export function ShareDialog({
   )
 }
 
-/** Amber chrome for the consent screen; neutral for the rest. */
+/** Amber chrome for the consent screen; neutral for the rest.
+ *  Every step is capped to the viewport and scrolls internally (dv-scroll
+ *  slim scrollbar): on short windows the consent text (headline block +
+ *  three paragraphs) is taller than the screen, and the checkbox /
+ *  «Продолжить» must stay reachable without guesswork. */
 function cnStep(step: Step): string {
+  const fit = 'max-h-[calc(100dvh-2rem)] overflow-y-auto dv-scroll'
   if (step === 'confirm') {
-    return 'sm:max-w-lg border-amber-300/80 bg-amber-50/95 backdrop-blur dark:border-amber-600/50 dark:bg-amber-950/50'
+    return `sm:max-w-lg border-amber-300/80 bg-amber-50/95 backdrop-blur dark:border-amber-600/50 dark:bg-amber-950/50 ${fit}`
   }
   if (step === 'working') {
-    return 'sm:max-w-md border-amber-300/60 dark:border-amber-600/40'
+    return `sm:max-w-md border-amber-300/60 dark:border-amber-600/40 ${fit}`
   }
-  return 'sm:max-w-md'
+  return `sm:max-w-md ${fit}`
 }
