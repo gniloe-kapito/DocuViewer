@@ -1001,7 +1001,7 @@ export default function Home() {
             ) : activeFile ? (
               <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
                 <section
-                  className="min-w-0 flex-1 h-[65dvh] min-h-[420px] lg:h-[calc(100dvh-295px)] rounded-xl border border-border bg-card/40 overflow-hidden"
+                  className="min-w-0 lg:flex-1 h-[65dvh] min-h-[420px] lg:h-[calc(100dvh-295px)] rounded-xl border border-border bg-card/40 overflow-hidden"
                   aria-label="Просмотр документа"
                 >
                   <ShareFileProvider onShare={openShare}>
